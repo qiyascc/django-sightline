@@ -277,6 +277,27 @@
   to { transform: scale(1.8); opacity: 0; }
 }
 
+/* Said over the stage when a popup was open that this copy of the page
+   does not contain. Losing the fact is worse than showing a note. */
+.sl-flag[data-quiet] {
+  background: rgba(20, 90, 170, .92);
+  right: auto;
+  max-width: 80%;
+}
+.sl-flag {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  padding: 9px 11px;
+  border-radius: 7px;
+  background: rgba(16, 19, 26, .92);
+  color: #e8ecf3;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .sl-controls {
   display: flex;
   align-items: center;

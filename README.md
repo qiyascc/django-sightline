@@ -19,6 +19,9 @@ stored in your own database and rendered by your own server.
 * **Session replay.** Pointer, scrolling, clicks and typing markers played
   back over the page.
 * **Element list.** Clicks per element, so you can see which button wins.
+* **Popups.** Dialogs and panels are recorded when they open and reopened
+  during replay, so a visit spent inside a modal is not replayed as a
+  visit spent staring at the page behind it.
 * **Live overlay.** Open any page of your site with the heatmap drawn on
   top of it. Staff only.
 * **Admin panel.** Pages, visits and signals in one screen inside your

@@ -479,3 +479,95 @@ class IframeTests(TestCase):
         source = open(finders.find("sightline/js/tracker.js"), encoding="utf-8").read()
         self.assertLess(source.index("window.top !== window.self"),
                         source.index("addEventListener"))
+
+
+class OverlayRecordingTests(TestCase):
+    """
+    A popup is a page in the only way that matters: the visitor is looking
+    at it. It has no URL, so nothing else in the recorder notices it, and a
+    replay without it shows somebody clicking on a page that was covered.
+    """
+
+    url = "/sightline/collect/"
+
+    def post(self, payload):
+        return self.client.post(self.url, data=json.dumps(payload),
+                                content_type="application/json")
+
+    def test_an_overlay_event_is_stored_with_its_state(self):
+        self.post(batch(events=[
+            {"k": "overlay", "t": 1200, "sel": "#gateBox", "lbl": "Sign in",
+             "m": {"state": "open"}},
+        ]))
+        row = Event.objects.get(kind="overlay")
+        self.assertEqual(row.selector, "#gateBox")
+        self.assertEqual(row.meta, {"state": "open"})
+
+    def test_closing_is_recorded_too(self):
+        """Without the close, every replay after it shows a stuck popup."""
+        self.post(batch(events=[
+            {"k": "overlay", "t": 1, "sel": "#x", "m": {"state": "open"}},
+            {"k": "overlay", "t": 2, "sel": "#x", "m": {"state": "close"}},
+        ]))
+        states = [e.meta.get("state") for e in Event.objects.order_by("t_ms")]
+        self.assertEqual(states, ["open", "close"])
+
+    def test_overlays_stay_out_of_the_heatmap(self):
+        """They have no position, so counting them into a grid is noise."""
+        self.post(batch(events=[
+            {"k": "overlay", "t": 1, "sel": "#x", "m": {"state": "open"}},
+        ]))
+        self.assertFalse(HeatCell.objects.filter(kind="overlay").exists())
+
+    def test_the_meta_travels_to_the_player(self):
+        staff = User.objects.create_user("boss8", password="x",
+                                         is_staff=True, is_superuser=True)
+        answer = self.post(batch(events=[
+            {"k": "overlay", "t": 900, "sel": "#gateBox", "lbl": "Sign in",
+             "m": {"state": "open"}},
+        ])).json()
+        self.client.force_login(staff)
+        data = self.client.get(reverse("sightline:replay_data",
+                                       args=[answer["session"]])).json()
+        row = data["views"][0]["events"][0]
+        self.assertEqual(row[0], "overlay")
+        self.assertEqual(row[5], "#gateBox")
+        self.assertEqual(row[7], {"state": "open"})
+
+    def test_the_tracker_watches_the_configured_selectors(self):
+        from django.contrib.staticfiles import finders
+        source = open(finders.find("sightline/js/tracker.js"), encoding="utf-8").read()
+        self.assertIn("overlaySelectors", source)
+        self.assertIn("scanOverlays", source)
+
+    def test_the_selectors_reach_the_page(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn("overlaySelectors", html)
+        self.assertIn("dialog", html)
+
+    def test_the_player_reopens_them(self):
+        from django.contrib.staticfiles import finders
+        source = open(finders.find("sightline/js/replay.js"), encoding="utf-8").read()
+        self.assertIn("showModal", source)
+
+    def test_the_player_says_so_when_a_popup_is_missing(self):
+        """
+        The page is fetched as the staff member watching, so markup meant
+        only for signed out visitors is not in that copy. Silence would
+        make the replay look like nothing happened.
+        """
+        from django.contrib.staticfiles import finders
+        source = open(finders.find("sightline/js/replay.js"), encoding="utf-8").read()
+        self.assertIn("Popup opened: ", source)
+
+
+class OverlayNoiseTests(TestCase):
+    def test_a_closed_overlay_is_not_announced_on_first_sight(self):
+        """
+        Every page has closed dialogs sitting in its markup. Reporting
+        them would put a row of "closed" at the top of every single visit
+        and bury the one that actually opened.
+        """
+        from django.contrib.staticfiles import finders
+        source = open(finders.find("sightline/js/tracker.js"), encoding="utf-8").read()
+        self.assertIn("if (!now) { continue; }", source)

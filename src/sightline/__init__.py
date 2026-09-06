@@ -1,4 +1,4 @@
 """Click heatmaps, scroll maps and session replay for Django."""
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 default_app_config = "sightline.apps.SightlineConfig"

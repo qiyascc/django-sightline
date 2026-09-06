@@ -158,6 +158,7 @@ class Event(models.Model):
         DEAD = "dead", "Dead click"
         INPUT = "input", "Typing"
         RESIZE = "resize", "Resize"
+        OVERLAY = "overlay", "Overlay shown or hidden"
         ERROR = "error", "Script error"
         CUSTOM = "custom", "Custom"
 

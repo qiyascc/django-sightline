@@ -103,6 +103,8 @@ class SightlineMiddleware:
             "rageWindowMs": get_setting("RAGE_CLICK_WINDOW_MS"),
             "rageRadius": get_setting("RAGE_CLICK_RADIUS_PX"),
             "maskSelectors": get_setting("MASK_SELECTORS"),
+            "overlaySelectors": get_setting("OVERLAY_SELECTORS"),
+            "overlayPollMs": get_setting("OVERLAY_POLL_MS"),
         }
         return render_to_string("sightline/_tracker.html", {
             "config": json.dumps(config),

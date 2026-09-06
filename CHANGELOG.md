@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3
+
+* Popups are recorded and replayed. Anything matching a dialog selector is
+  watched for opening and closing, and the player opens it again at the
+  right moment. A replay that skipped them showed somebody clicking on a
+  page that was covered at the time.
+* When the popup is not in the fetched copy of the page, because it is
+  only rendered for signed out visitors, the player says so on screen
+  rather than replaying a page that looks untouched.
+* The player forces visibility directly instead of guessing how the site
+  opens the thing, and puts every change back when it closes.
+
 ## 0.1.2
 
 * Replay works behind `X-Frame-Options: DENY`, which Django sends by

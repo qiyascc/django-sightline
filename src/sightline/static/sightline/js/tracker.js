@@ -270,6 +270,86 @@
     push("error", { lbl: String(event.message || "").slice(0, 160) });
   }));
 
+  // ---------------------------------------------------------------- overlays
+  // A popup is a page in the only way that matters: the visitor is looking
+  // at it. It has no URL, so nothing else in the recorder notices it, and
+  // a replay without it shows somebody clicking on a page that was covered
+  // at the time.
+  //
+  // Checked on a timer rather than through a mutation filter. An overlay
+  // can be opened by a native dialog call, an attribute, a class or a
+  // style, and one cheap loop catches all four where a filter would miss
+  // three.
+  var overlayState = {};
+
+  function visible(node) {
+    if (!node) { return false; }
+    if (node.tagName === "DIALOG") { return node.hasAttribute("open"); }
+    if (node.hasAttribute("hidden")) { return false; }
+    if (!node.getClientRects().length) { return false; }
+    var style = window.getComputedStyle(node);
+    if (style.visibility === "hidden" || style.display === "none") { return false; }
+    return parseFloat(style.opacity || "1") > 0.05;
+  }
+
+  function overlayName(node) {
+    // A popup whose content arrives later, a chat panel for instance, has
+    // no text at the moment it opens. Its own label is a better name than
+    // an empty string, and far better than a CSS selector.
+    var named = node.getAttribute("aria-label")
+      || node.getAttribute("data-title")
+      || node.getAttribute("title")
+      || "";
+    if (named) { return named.slice(0, 60); }
+    var text = labelFor(node);
+    if (text) { return text.slice(0, 60); }
+    return (node.id || node.className || node.tagName || "").toString().slice(0, 60);
+  }
+
+  function scanOverlays() {
+    var list = config.overlaySelectors || [];
+    if (!list.length) { return; }
+    var nodes;
+    try {
+      nodes = document.querySelectorAll(list.join(","));
+    } catch (e) {
+      return;
+    }
+    var seen = {};
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var key = selectorFor(node);
+      seen[key] = true;
+      var now = visible(node);
+
+      // First sighting. A closed overlay is the normal state of the page
+      // and saying so would put a "closed" row at the top of every visit;
+      // one that is already open when the page loads is worth recording.
+      if (overlayState[key] === undefined) {
+        overlayState[key] = now;
+        if (!now) { continue; }
+      } else if (overlayState[key] === now) {
+        continue;
+      }
+      overlayState[key] = now;
+      push("overlay", {
+        sel: key,
+        lbl: overlayName(node),
+        m: { state: now ? "open" : "close" }
+      });
+      if (now) { flush(false); }
+    }
+    // An overlay removed from the page counts as closed.
+    for (var known in overlayState) {
+      if (overlayState[known] && !seen[known]) {
+        overlayState[known] = false;
+        push("overlay", { sel: known, m: { state: "close" } });
+      }
+    }
+  }
+
+  setInterval(guard(scanOverlays), config.overlayPollMs || 400);
+
   // ---------------------------------------------------------------- lifecycle
   timer = setInterval(function () { flush(false); }, FLUSH_MS);
 

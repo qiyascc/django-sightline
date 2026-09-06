@@ -122,6 +122,8 @@
     pageLabel.textContent = view.path;
     clock.textContent = "0:00 / " + fmt(view.durationMs);
     fit();
+    flag("");
+    forced = [];
     loadPage(view.path);
     markStep(index);
   }
@@ -156,8 +158,121 @@
     setTimeout(function () { dot.remove(); }, 900);
   }
 
+  // ---------------------------------------------------------------- overlays
+  // The page is fetched fresh, so every popup in it starts closed. When
+  // the recording says one was open, it is opened here too.
+  //
+  // It can be missing entirely: the page is fetched as the staff member
+  // watching, and markup rendered only for signed out visitors, a login
+  // prompt for instance, is simply not in that copy. Saying so on screen
+  // is better than replaying a page that looks untouched while the
+  // visitor was staring at a dialog.
+  function overlay(row) {
+    var selector = row[5], label = row[6];
+    var state = (row[7] && row[7].state) || "open";
+    var doc = null;
+    try { doc = frame.contentDocument; } catch (e) {}
+    if (!doc) { return; }
+
+    var node = null;
+    try { node = doc.querySelector(selector); } catch (e) {}
+
+    if (!node) {
+      if (state === "open") {
+        flag("Popup opened: " + (label || selector)
+             + ". Not in this copy of the page, because it is only rendered "
+             + "for signed out visitors.");
+      } else {
+        flag("");
+      }
+      return;
+    }
+
+    if (state === "open") {
+      show(node, doc);
+      flag("Popup open: " + (label || selector), true);
+    } else {
+      hide(node);
+      flag("");
+    }
+  }
+
+  // Everything the player forced open, so it can be put back.
+  var forced = [];
+
+  function show(node, doc) {
+    // The site's own way of opening this thing is not knowable from a
+    // selector. The recording says the pane was on screen; whether that
+    // was a class on it, an attribute on its grandparent or a native
+    // dialog call is the site's business. So visibility is forced
+    // directly, and only the properties that are actually hiding it are
+    // touched: overriding display on a flex container would rearrange the
+    // very thing we are trying to look at.
+    var win = doc.defaultView || window;
+    var chain = [];
+    var walk = node;
+    while (walk && walk !== doc.body && walk !== doc.documentElement) {
+      chain.push(walk);
+      walk = walk.parentElement;
+    }
+
+    chain.forEach(function (el) {
+      var before = {
+        node: el,
+        hidden: el.hasAttribute("hidden"),
+        open: el.hasAttribute("data-open"),
+        style: el.getAttribute("style")
+      };
+      forced.push(before);
+
+      el.removeAttribute("hidden");
+      el.setAttribute("data-open", "");
+
+      var computed = win.getComputedStyle(el);
+      if (computed.display === "none") { el.style.display = "block"; }
+      if (computed.visibility === "hidden") { el.style.visibility = "visible"; }
+      if (parseFloat(computed.opacity || "1") < 0.99) { el.style.opacity = "1"; }
+      if (computed.transform && computed.transform !== "none") {
+        el.style.transform = "none";
+      }
+    });
+
+    if (node.tagName === "DIALOG" && !node.hasAttribute("open")) {
+      try { node.showModal(); } catch (e) {
+        try { node.show(); } catch (err) { node.setAttribute("open", ""); }
+      }
+    }
+  }
+
+  function hide(node) {
+    restore();
+    if (node && node.tagName === "DIALOG") {
+      try { node.close(); } catch (e) { node.removeAttribute("open"); }
+    }
+  }
+
+  function restore() {
+    forced.forEach(function (before) {
+      var el = before.node;
+      if (before.hidden) { el.setAttribute("hidden", ""); }
+      if (!before.open) { el.removeAttribute("data-open"); }
+      if (before.style === null) { el.removeAttribute("style"); }
+      else { el.setAttribute("style", before.style); }
+    });
+    forced = [];
+  }
+
+  function flag(text, quiet) {
+    var box = document.getElementById("sl-flag");
+    if (!box) { return; }
+    box.textContent = text || "";
+    box.hidden = !text;
+    box.toggleAttribute("data-quiet", !!quiet);
+  }
+
   function apply(row) {
     var kind = row[0], x = row[2], y = row[3], scroll = row[4];
+    if (kind === "overlay") { overlay(row); return; }
     if (kind === "move" || kind === "scroll") { place(x, y, scroll); return; }
     if (kind === "click" || kind === "rage" || kind === "dead" || kind === "input") {
       place(x, y, scroll);
@@ -172,9 +287,14 @@
     // frame scrolled wherever it happened to be.
     elapsed = to;
     cursorAt = 0;
+    restore();
+    flag("");
     var lastRow = null;
     while (cursorAt < events.length && events[cursorAt][1] <= elapsed) {
-      lastRow = events[cursorAt];
+      // Overlays are replayed on the way, so a popup that was open at the
+      // moment being seeked to is open again.
+      if (events[cursorAt][0] === "overlay") { overlay(events[cursorAt]); }
+      else { lastRow = events[cursorAt]; }
       cursorAt++;
     }
     if (lastRow) { place(lastRow[2], lastRow[3], lastRow[4]); }

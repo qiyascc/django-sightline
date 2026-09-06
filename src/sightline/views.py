@@ -172,7 +172,8 @@ def replay_data(request, session_id):
     for view in views:
         rows = (Event.objects.filter(pageview=view)
                 .order_by("t_ms", "id")
-                .values("kind", "t_ms", "x", "y", "scroll_y", "selector", "label"))
+                .values("kind", "t_ms", "x", "y", "scroll_y", "selector",
+                        "label", "meta"))
         out.append({
             "path": view.page.path,
             "title": view.page.title,
@@ -181,7 +182,7 @@ def replay_data(request, session_id):
             "viewport": [view.viewport_width, view.viewport_height],
             "documentHeight": view.document_height,
             "events": [[r["kind"], r["t_ms"], r["x"], r["y"], r["scroll_y"],
-                        r["selector"], r["label"]] for r in rows],
+                        r["selector"], r["label"], r["meta"]] for r in rows],
         })
 
     return JsonResponse({

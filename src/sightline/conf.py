@@ -72,6 +72,20 @@ DEFAULTS = {
     # same visitor cannot be followed across days.
     "SALT": "",
 
+    # Overlays are pages too, in the way that matters: the visitor is
+    # looking at them. They have no URL, so nothing else records them.
+    # Anything matching one of these is watched for opening and closing.
+    "OVERLAY_SELECTORS": [
+        "dialog", "[role=dialog]", "[aria-modal=true]",
+        "[data-overlay]", ".modal", ".popup",
+    ],
+
+    # How often overlays are checked. Polling rather than watching every
+    # attribute change: an overlay can be opened by a class, an attribute,
+    # a style or a native dialog call, and one cheap loop catches all of
+    # them where a mutation filter would miss three out of four.
+    "OVERLAY_POLL_MS": 400,
+
     # CSS selectors whose clicks are recorded without text. Useful for
     # anything showing a name, an address or an order number.
     "MASK_SELECTORS": [],
