@@ -236,17 +236,22 @@
 /* ------------------------------------------------------------- replay */
 .sl-player { display: grid; grid-template-columns: 1fr 240px; gap: 14px; }
 @media (max-width: 900px) { .sl-player { grid-template-columns: 1fr; } }
+/* The stage keeps the shape of the screen the visitor had, so a phone
+   visit replays tall and a desktop visit replays wide. Its height is set
+   from JavaScript once the recorded viewport is known. */
 .sl-stage {
   position: relative;
   border: 1px solid var(--border-color, #dcdcdc);
   border-radius: 8px;
   overflow: hidden;
   background: #0d0f14;
-  aspect-ratio: 16 / 10;
+  min-height: 220px;
 }
-.sl-stage iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.sl-scaler { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.sl-stage iframe { display: block; border: 0; background: #fff; }
 .sl-cursor {
   position: absolute;
+  z-index: 2;
   top: 0; left: 0;
   width: 18px; height: 18px;
   margin: -9px 0 0 -9px;
@@ -256,7 +261,7 @@
   pointer-events: none;
   transition: transform .12s linear;
 }
-.sl-ripple { position: absolute; inset: 0; pointer-events: none; }
+.sl-ripple { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .sl-pop {
   position: absolute;
   width: 26px; height: 26px;

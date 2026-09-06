@@ -171,6 +171,18 @@ interactions, not the DOM. Playback loads the page as it exists now in an
 iframe and moves a cursor over it, scrolling as the visitor scrolled and
 marking each click.
 
+The page is fetched and written into the frame rather than loaded by URL.
+Django sends `X-Frame-Options: DENY` on every response by default, and many
+sites add it again at the proxy, so pointing an iframe at your own page
+shows a broken document icon and nothing else. Writing the HTML in
+sidesteps that: there is no navigation, so there is no header to refuse it.
+Scripts are stripped on the way in, which also keeps the replayed page from
+starting a recording of its own.
+
+The frame is sized to the viewport the visitor had and scaled down to fit.
+A phone visit replays at phone width, so the cursor lands on the elements
+the visitor actually saw.
+
 What that buys you: a tiny recorder, a small database, and no risk of
 storing personal data that happened to be on screen.
 

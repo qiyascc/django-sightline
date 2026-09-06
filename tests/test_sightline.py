@@ -412,3 +412,70 @@ class OpenAnyPageTests(TestCase):
     def test_the_tables_stack_on_a_phone(self):
         html = self.client.get(reverse("sightline:dashboard")).content.decode()
         self.assertIn("sl-table--stack", html)
+
+
+class ReplayFrameTests(TestCase):
+    """
+    The replay frame is the part most likely to break silently, because it
+    depends on how the host project sends its headers.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_user("boss7", password="x",
+                                              is_staff=True, is_superuser=True)
+        self.client.force_login(self.staff)
+        self.page = Page.objects.create(path="/shop/")
+        self.session = Session.objects.create(visitor_key="k", device=Device.MOBILE)
+        self.view = PageView.objects.create(session=self.session, page=self.page,
+                                            viewport_width=390, viewport_height=844,
+                                            document_height=3000, duration_ms=8000)
+        Event.objects.create(pageview=self.view, kind="click", t_ms=500,
+                             x=100, y=400, scroll_y=0)
+
+    def test_the_frame_is_not_pointed_at_a_url(self):
+        """
+        Django sends X-Frame-Options: DENY by default, so an iframe with a
+        src would show a broken document and nothing else. The page is
+        fetched and written in instead.
+        """
+        html = self.client.get(reverse("sightline:replay",
+                                       args=[self.session.pk])).content.decode()
+        self.assertIn('id="sl-frame"', html)
+        self.assertNotIn('id="sl-frame" src=', html)
+
+    def test_the_recorded_viewport_travels_with_the_data(self):
+        """A phone visit has to replay at phone width or the cursor lands
+        on the wrong elements."""
+        data = self.client.get(reverse("sightline:replay_data",
+                                       args=[self.session.pk])).json()
+        self.assertEqual(data["views"][0]["viewport"], [390, 844])
+
+    def test_a_visit_with_no_pages_does_not_open(self):
+        empty = Session.objects.create(visitor_key="none")
+        answer = self.client.get(reverse("sightline:replay", args=[empty.pk]))
+        self.assertEqual(answer.status_code, 404)
+
+    def test_the_player_is_staff_only(self):
+        self.client.logout()
+        answer = self.client.get(reverse("sightline:replay", args=[self.session.pk]))
+        self.assertEqual(answer.status_code, 302)
+
+
+class IframeTests(TestCase):
+    """
+    A page that embeds part of itself would otherwise be recorded twice,
+    and the frame reports a path nobody can open: "srcdoc", "about:blank".
+    Those crowd out the real pages in every report.
+    """
+
+    def test_the_tracker_refuses_to_run_outside_the_top_window(self):
+        from django.contrib.staticfiles import finders
+        path = finders.find("sightline/js/tracker.js")
+        source = open(path, encoding="utf-8").read()
+        self.assertIn("window.top !== window.self", source)
+
+    def test_the_guard_comes_before_anything_is_recorded(self):
+        from django.contrib.staticfiles import finders
+        source = open(finders.find("sightline/js/tracker.js"), encoding="utf-8").read()
+        self.assertLess(source.index("window.top !== window.self"),
+                        source.index("addEventListener"))

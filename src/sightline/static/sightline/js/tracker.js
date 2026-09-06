@@ -16,6 +16,19 @@
   var config = window.__sightline || {};
   if (!config.collect) { return; }
 
+  // Only the top window records. A page that embeds part of itself in an
+  // iframe (a chat panel, a preview, a widget) would otherwise record the
+  // frame as a separate visit, and the path it reports is whatever the
+  // frame's own URL happens to be: "srcdoc", "about:blank", a fragment.
+  // None of those are pages anybody can open, and they crowd out the real
+  // ones in every report.
+  try {
+    if (window.top !== window.self) { return; }
+  } catch (e) {
+    // Cross origin parent. Same conclusion: not the top window.
+    return;
+  }
+
   var STORE_SESSION = "sightline.session";
   var STORE_SAMPLE = "sightline.sampled";
   var FLUSH_MS = 5000;
