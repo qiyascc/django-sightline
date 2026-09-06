@@ -1,0 +1,109 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'sightline/css/sightline.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sl-wrap">
+
+  <div class="sl-filters">
+    {% for value in ranges %}
+      <a href="?days={{ value }}{% if device %}&device={{ device }}{% endif %}"
+         {% if value == days %}data-on{% endif %}>
+        {% if value == 1 %}Today{% else %}{{ value }} days{% endif %}
+      </a>
+    {% endfor %}
+    <span style="width:12px"></span>
+    <a href="?days={{ days }}" {% if not device %}data-on{% endif %}>All devices</a>
+    {% for value, label in devices %}
+      <a href="?days={{ days }}&device={{ value }}"
+         {% if value == device %}data-on{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="sl-cards">
+    <div class="sl-card"><b>{{ totals.n }}</b><span>Sessions</span></div>
+    <div class="sl-card"><b>{{ totals.rage }}</b><span>With rage clicks</span></div>
+    <div class="sl-card"><b>{{ totals.dead }}</b><span>With dead clicks</span></div>
+    <div class="sl-card"><b>{{ totals.errors }}</b><span>With script errors</span></div>
+  </div>
+
+  <div>
+    <h2>Pages</h2>
+    <table class="sl-table">
+      <thead>
+        <tr>
+          <th>Path</th>
+          <th class="num">Views</th>
+          <th class="num">Clicks</th>
+          <th class="num">Avg scroll</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for page in pages %}
+          <tr>
+            <td>
+              <div>{{ page.path }}</div>
+              {% if page.title %}<div style="opacity:.6;font-size:12px">{{ page.title }}</div>{% endif %}
+            </td>
+            <td class="num">{{ page.views }}</td>
+            <td class="num">{{ page.clicks }}</td>
+            <td class="num">{{ page.scroll }}%</td>
+            <td>
+              <a class="sl-btn" target="_blank" rel="noopener"
+                 href="{{ page.path }}?sightline=overlay&sl_page={{ page.id }}&sl_days={{ days }}{% if device %}&sl_device={{ device }}{% endif %}">
+                Open heatmap
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="sl-empty">Nothing recorded in this range yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div>
+    <h2>Recent visits</h2>
+    <table class="sl-table">
+      <thead>
+        <tr>
+          <th>Started</th>
+          <th>Device</th>
+          <th class="num">Pages</th>
+          <th class="num">Length</th>
+          <th>Signals</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in sessions %}
+          <tr>
+            <td>{{ row.started_at|date:"d.m.Y H:i" }}</td>
+            <td>{{ row.get_device_display }}</td>
+            <td class="num">{{ row.page_count }}</td>
+            <td class="num">{{ row.duration_seconds }}s</td>
+            <td>
+              {% if row.has_rage %}<span class="sl-tag">rage</span>{% endif %}
+              {% if row.has_dead_click %}<span class="sl-tag sl-tag--warn">dead</span>{% endif %}
+              {% if row.has_error %}<span class="sl-tag">error</span>{% endif %}
+              {% if not row.has_rage and not row.has_dead_click and not row.has_error %}
+                <span class="sl-tag sl-tag--quiet">quiet</span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="sl-btn sl-btn--ghost"
+                 href="{% url 'sightline:replay' row.pk %}">Replay</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="sl-empty">No visits recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-sightline"
+version = "0.1.0"
+description = "Click heatmaps, scroll maps and session replay for Django, with an admin panel and a live overlay."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "CC", email = "qiyasturk@gmail.com" }]
+keywords = ["django", "heatmap", "analytics", "session replay", "click map", "scroll map"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Internet :: WWW/HTTP :: Site Management",
+]
+dependencies = ["Django>=4.2"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-django", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/qiyascc/django-sightline"
+Source = "https://github.com/qiyascc/django-sightline"
+Issues = "https://github.com/qiyascc/django-sightline/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sightline = ["static/sightline/**/*", "templates/sightline/*.html"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py310"

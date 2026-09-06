@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'sightline/css/sightline.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sl-wrap">
+  <div class="sl-player">
+    <div>
+      <div class="sl-stage">
+        <iframe id="sl-frame" src="{{ first_path }}" title="Replay"></iframe>
+        <div class="sl-ripple" id="sl-ripple"></div>
+        <div class="sl-cursor" id="sl-cursor"></div>
+      </div>
+      <div class="sl-controls">
+        <button type="button" class="sl-btn" id="sl-play">Play</button>
+        <select id="sl-speed">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
+        </select>
+        <input type="range" id="sl-timeline" min="0" max="1000" value="0">
+        <span id="sl-clock">0:00</span>
+        <span id="sl-page" style="opacity:.65"></span>
+      </div>
+    </div>
+
+    <div>
+      <div class="sl-steps" id="sl-steps"></div>
+      <p class="sl-note">
+        This plays back the pointer, scrolling and clicks over the page as it
+        is now. Page contents are never recorded, so a page changed since the
+        visit replays against its current version.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__sightlineReplay = {
+    dataUrl: "{% url 'sightline:replay_data' session.pk %}"
+  };
+</script>
+<script src="{% static 'sightline/js/replay.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,347 @@
+"""
+Tests.
+
+Weighted towards the things that go wrong quietly: a recorder that records
+the wrong people, a heatmap that double counts, an overlay that a visitor
+can open. A broken chart is obvious. A wrong number is not.
+"""
+import json
+import uuid
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from sightline.models import (Device, ElementStat, Event, HeatCell, Page,
+                              PageView, ScrollBand, Session)
+from sightline.utils import clean_path, device_of, is_bot, visitor_key
+
+User = get_user_model()
+
+
+def batch(**extra):
+    payload = {
+        "url": "/shop/",
+        "title": "Shop",
+        "viewportWidth": 1280,
+        "viewportHeight": 800,
+        "documentHeight": 4000,
+        "maxScrollPct": 50,
+        "durationMs": 4200,
+        "first": True,
+        "events": [
+            {"k": "click", "t": 900, "x": 640, "y": 400, "xp": 0.5, "yp": 0.1,
+             "s": 0, "sel": "#buy", "lbl": "Buy now"},
+            {"k": "move", "t": 500, "x": 200, "y": 300, "xp": 0.15, "yp": 0.07},
+        ],
+    }
+    payload.update(extra)
+    return payload
+
+
+class CollectTests(TestCase):
+    url = "/sightline/collect/"
+
+    def post(self, payload, **extra):
+        return self.client.post(self.url, data=json.dumps(payload),
+                                content_type="application/json", **extra)
+
+    def test_a_batch_creates_a_session_a_page_and_a_view(self):
+        answer = self.post(batch()).json()
+        self.assertTrue(answer["ok"])
+        self.assertEqual(Session.objects.count(), 1)
+        self.assertEqual(Page.objects.get().path, "/shop/")
+        self.assertEqual(PageView.objects.count(), 1)
+
+    def test_the_events_are_stored(self):
+        self.post(batch())
+        self.assertEqual(Event.objects.count(), 2)
+
+    def test_the_second_batch_joins_the_same_session(self):
+        first = self.post(batch()).json()
+        self.post(batch(session=first["session"], pageview=first["pageview"],
+                        first=False))
+        self.assertEqual(Session.objects.count(), 1)
+        self.assertEqual(PageView.objects.count(), 1)
+
+    def test_an_unknown_session_id_starts_a_new_visit(self):
+        self.post(batch(session=str(uuid.uuid4())))
+        self.assertEqual(Session.objects.count(), 1)
+
+    def test_unknown_event_kinds_are_dropped(self):
+        self.post(batch(events=[{"k": "mine", "t": 1}, {"k": "click", "t": 2}]))
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_a_broken_body_is_refused_without_a_traceback(self):
+        answer = self.client.post(self.url, data="not json",
+                                  content_type="application/json")
+        self.assertEqual(answer.status_code, 400)
+
+    def test_a_list_instead_of_an_object_is_refused(self):
+        answer = self.client.post(self.url, data="[1,2,3]",
+                                  content_type="application/json")
+        self.assertEqual(answer.status_code, 400)
+
+    def test_a_get_is_not_allowed(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    @override_settings(SIGHTLINE={"EXCLUDE_PATHS": ["/shop/"]})
+    def test_an_excluded_path_is_not_recorded(self):
+        answer = self.post(batch()).json()
+        self.assertFalse(answer["ok"])
+        self.assertEqual(Session.objects.count(), 0)
+
+    @override_settings(SIGHTLINE={"MAX_BATCH": 1})
+    def test_an_oversized_batch_is_trimmed_not_rejected(self):
+        """Losing one page of events is better than losing the session."""
+        self.post(batch())
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_the_query_string_is_dropped_by_default(self):
+        self.post(batch(url="/shop/?utm_source=x&page=2"))
+        self.assertEqual(Page.objects.get().path, "/shop/")
+
+    @override_settings(SIGHTLINE={"KEEP_QUERY_STRING": True})
+    def test_it_can_be_kept(self):
+        self.post(batch(url="/shop/?page=2"))
+        self.assertEqual(Page.objects.get().path, "/shop/?page=2")
+
+
+class RollupTests(TestCase):
+    url = "/sightline/collect/"
+
+    def post(self, payload):
+        return self.client.post(self.url, data=json.dumps(payload),
+                                content_type="application/json")
+
+    def test_clicks_land_in_a_grid_cell(self):
+        self.post(batch())
+        cell = HeatCell.objects.get(kind="click")
+        self.assertEqual(cell.count, 1)
+
+    def test_the_same_cell_adds_up(self):
+        first = self.post(batch()).json()
+        self.post(batch(session=first["session"], pageview=first["pageview"],
+                        first=False))
+        self.assertEqual(HeatCell.objects.get(kind="click").count, 2)
+
+    def test_element_clicks_are_counted(self):
+        self.post(batch())
+        row = ElementStat.objects.get(selector="#buy")
+        self.assertEqual(row.clicks, 1)
+        self.assertEqual(row.label, "Buy now")
+
+    def test_rage_clicks_are_counted_separately(self):
+        self.post(batch(events=[{"k": "rage", "t": 1, "xp": 0.5, "yp": 0.5,
+                                 "sel": "#buy"}]))
+        row = ElementStat.objects.get(selector="#buy")
+        self.assertEqual(row.rage_clicks, 1)
+        self.assertEqual(row.clicks, 0)
+
+    def test_scroll_depth_credits_every_band_below_it(self):
+        self.post(batch(maxScrollPct=50))
+        self.assertEqual(ScrollBand.objects.count(), 10)
+
+    def test_a_second_batch_does_not_credit_the_same_bands_again(self):
+        """
+        The trap this test exists for: a page sending ten batches would
+        otherwise look ten times as read as it was.
+        """
+        first = self.post(batch(maxScrollPct=50)).json()
+        self.post(batch(session=first["session"], pageview=first["pageview"],
+                        first=False, maxScrollPct=50))
+        for band in ScrollBand.objects.all():
+            self.assertEqual(band.reached, 1)
+
+    def test_scrolling_further_credits_only_the_new_bands(self):
+        first = self.post(batch(maxScrollPct=50)).json()
+        self.post(batch(session=first["session"], pageview=first["pageview"],
+                        first=False, maxScrollPct=100))
+        self.assertEqual(ScrollBand.objects.count(), 20)
+        self.assertEqual(ScrollBand.objects.get(band=1).reached, 1)
+
+    def test_page_views_are_counted_once_per_page_not_per_batch(self):
+        first = self.post(batch()).json()
+        self.post(batch(session=first["session"], pageview=first["pageview"],
+                        first=False))
+        self.assertEqual(Page.objects.get().view_count, 1)
+
+    def test_signals_are_raised_on_the_session(self):
+        self.post(batch(events=[{"k": "rage", "t": 1}, {"k": "error", "t": 2}]))
+        session = Session.objects.get()
+        self.assertTrue(session.has_rage)
+        self.assertTrue(session.has_error)
+
+
+class MiddlewareTests(TestCase):
+    def test_the_tracker_is_injected_into_html(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn("sightline/js/tracker.js", html)
+
+    def test_it_goes_in_before_the_closing_body_tag(self):
+        html = self.client.get("/").content.decode()
+        self.assertLess(html.index("tracker.js"), html.index("</body>"))
+
+    def test_the_config_travels_with_it(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn("__sightline", html)
+        self.assertIn("/sightline/collect/", html)
+
+    def test_excluded_paths_carry_nothing(self):
+        html = self.client.get("/sightline/collect/").content.decode()
+        self.assertNotIn("tracker.js", html)
+
+    def test_staff_are_not_recorded(self):
+        """Your own clicks are not data. They are the loudest noise there is."""
+        staff = User.objects.create_user("boss", password="x", is_staff=True)
+        self.client.force_login(staff)
+        html = self.client.get("/").content.decode()
+        self.assertNotIn("tracker.js", html)
+
+    @override_settings(SIGHTLINE={"IGNORE_STAFF": False})
+    def test_unless_you_ask_for_it(self):
+        staff = User.objects.create_user("boss2", password="x", is_staff=True)
+        self.client.force_login(staff)
+        self.assertIn("tracker.js", self.client.get("/").content.decode())
+
+    @override_settings(SIGHTLINE={"AUTO_INJECT": False})
+    def test_injection_can_be_switched_off(self):
+        self.assertNotIn("tracker.js", self.client.get("/").content.decode())
+
+    @override_settings(SIGHTLINE={"RESPECT_DNT": True})
+    def test_do_not_track_is_honoured(self):
+        html = self.client.get("/", HTTP_DNT="1").content.decode()
+        self.assertNotIn("tracker.js", html)
+
+    def test_bots_are_not_recorded(self):
+        html = self.client.get("/", HTTP_USER_AGENT="Googlebot/2.1").content.decode()
+        self.assertNotIn("tracker.js", html)
+
+
+class OverlayTests(TestCase):
+    def setUp(self):
+        self.page = Page.objects.create(path="/shop/")
+
+    def test_a_visitor_cannot_open_the_overlay(self):
+        html = self.client.get("/shop/?sightline=overlay").content.decode()
+        self.assertNotIn("overlay.js", html)
+
+    def test_staff_can(self):
+        staff = User.objects.create_user("boss3", password="x", is_staff=True)
+        self.client.force_login(staff)
+        html = self.client.get(
+            f"/shop/?sightline=overlay&sl_page={self.page.pk}").content.decode()
+        self.assertIn("overlay.js", html)
+        self.assertIn("__sightlineOverlay", html)
+
+    def test_the_overlay_replaces_the_tracker_not_joins_it(self):
+        staff = User.objects.create_user("boss4", password="x", is_staff=True)
+        self.client.force_login(staff)
+        html = self.client.get("/shop/?sightline=overlay").content.decode()
+        self.assertNotIn("tracker.js", html)
+
+
+class PanelTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user("boss5", password="x",
+                                              is_staff=True, is_superuser=True)
+        self.page = Page.objects.create(path="/shop/", view_count=3)
+        self.session = Session.objects.create(visitor_key="abc",
+                                              device=Device.DESKTOP)
+        self.view = PageView.objects.create(session=self.session, page=self.page,
+                                            viewport_width=1280,
+                                            document_height=3000)
+
+    def test_the_panel_is_closed_to_visitors(self):
+        answer = self.client.get(reverse("sightline:dashboard"))
+        self.assertEqual(answer.status_code, 302)
+
+    def test_staff_see_it(self):
+        self.client.force_login(self.staff)
+        answer = self.client.get(reverse("sightline:dashboard"))
+        self.assertEqual(answer.status_code, 200)
+        self.assertContains(answer, "/shop/")
+
+    def test_heat_data_is_closed_to_visitors(self):
+        answer = self.client.get(reverse("sightline:heat_data"),
+                                 {"page": self.page.pk})
+        self.assertEqual(answer.status_code, 302)
+
+    def test_heat_data_returns_cells(self):
+        HeatCell.objects.create(page=self.page, day="2026-01-01",
+                                device=Device.DESKTOP, kind="click",
+                                col=10, row=20, count=5)
+        self.client.force_login(self.staff)
+        answer = self.client.get(reverse("sightline:heat_data"),
+                                 {"page": self.page.pk, "days": 3650})
+        data = answer.json()
+        self.assertEqual(data["cells"], [[10, 20, 5]])
+        self.assertEqual(data["peak"], 5)
+
+    def test_heat_data_can_be_filtered_by_device(self):
+        HeatCell.objects.create(page=self.page, day="2026-01-01",
+                                device=Device.MOBILE, kind="click",
+                                col=1, row=1, count=9)
+        self.client.force_login(self.staff)
+        answer = self.client.get(reverse("sightline:heat_data"),
+                                 {"page": self.page.pk, "days": 3650,
+                                  "device": "desktop"})
+        self.assertEqual(answer.json()["cells"], [])
+
+    def test_the_replay_page_needs_a_recorded_view(self):
+        empty = Session.objects.create(visitor_key="none")
+        self.client.force_login(self.staff)
+        answer = self.client.get(reverse("sightline:replay", args=[empty.pk]))
+        self.assertEqual(answer.status_code, 404)
+
+    def test_replay_data_groups_events_by_page(self):
+        Event.objects.create(pageview=self.view, kind="click", t_ms=100, x=5, y=6)
+        self.client.force_login(self.staff)
+        answer = self.client.get(reverse("sightline:replay_data",
+                                         args=[self.session.pk]))
+        data = answer.json()
+        self.assertEqual(len(data["views"]), 1)
+        self.assertEqual(data["views"][0]["events"][0][0], "click")
+
+    def test_the_sidebar_entry_leads_to_the_panel(self):
+        self.client.force_login(self.staff)
+        answer = self.client.get("/admin/sightline/panel/")
+        self.assertEqual(answer.status_code, 302)
+        self.assertIn(reverse("sightline:dashboard"), answer["Location"])
+
+
+class UtilTests(TestCase):
+    def test_a_visitor_key_is_not_an_address(self):
+        request = self.client.request().wsgi_request
+        request.META["REMOTE_ADDR"] = "203.0.113.9"
+        key = visitor_key(request)
+        self.assertNotIn("203.0.113", key)
+        self.assertEqual(len(key), 40)
+
+    def test_the_same_visitor_gets_the_same_key_within_a_day(self):
+        request = self.client.request().wsgi_request
+        request.META["REMOTE_ADDR"] = "203.0.113.9"
+        self.assertEqual(visitor_key(request), visitor_key(request))
+
+    def test_the_key_changes_with_the_day(self):
+        from datetime import date
+        request = self.client.request().wsgi_request
+        request.META["REMOTE_ADDR"] = "203.0.113.9"
+        self.assertNotEqual(visitor_key(request, date(2026, 1, 1)),
+                            visitor_key(request, date(2026, 1, 2)))
+
+    def test_width_decides_the_device(self):
+        self.assertEqual(device_of("", 390), Device.MOBILE)
+        self.assertEqual(device_of("", 820), Device.TABLET)
+        self.assertEqual(device_of("", 1440), Device.DESKTOP)
+
+    def test_the_user_agent_decides_when_width_is_unknown(self):
+        self.assertEqual(device_of("iPhone", 0), Device.MOBILE)
+        self.assertEqual(device_of("iPad", 0), Device.TABLET)
+
+    def test_known_crawlers_are_recognised(self):
+        self.assertTrue(is_bot("Mozilla/5.0 (compatible; Googlebot/2.1)"))
+        self.assertFalse(is_bot("Mozilla/5.0 (iPhone)"))
+
+    def test_paths_are_capped(self):
+        self.assertLessEqual(len(clean_path("/" + "a" * 900)), 500)
