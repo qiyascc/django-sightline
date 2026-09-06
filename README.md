@@ -84,6 +84,21 @@ In the overlay you can switch between clicks, attention and scroll depth,
 change the date range, filter by device and change the opacity. Close puts
 the page back to normal.
 
+## Why is the panel empty
+
+Staff visits are not recorded. That is deliberate, and it is the single
+most common reason a fresh install looks broken: you browse your own site
+while signed in to the admin, then open the panel and see nothing.
+
+Open the site in a private window, or in a browser where you are signed
+out, and the first visit appears within a few seconds.
+
+To record staff as well, set `SIGHTLINE = {"IGNORE_STAFF": False}`. Useful
+while testing, noisy in daily use.
+
+The panel also has an **Open the heatmap on any page** box. Type a path and
+it opens the overlay there, whether or not that page has been recorded yet.
+
 ## Settings
 
 Everything lives in one dict and everything is optional:

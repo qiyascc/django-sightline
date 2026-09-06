@@ -86,6 +86,7 @@ class SightlineMiddleware:
             "dataUrl": reverse("sightline:heat_data"),
             "panelUrl": reverse("sightline:dashboard"),
             "pageId": request.GET.get("sl_page", ""),
+            "path": request.GET.get("sl_path", "") or request.path,
             "days": request.GET.get("sl_days", "30"),
             "device": request.GET.get("sl_device", ""),
         }

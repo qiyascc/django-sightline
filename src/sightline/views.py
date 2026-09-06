@@ -69,6 +69,17 @@ def _range(request):
     return end - timedelta(days=days - 1), end, days
 
 
+def _page_from(request):
+    """The page being asked about, by id or by path. None when unknown."""
+    given = request.GET.get("page")
+    if given:
+        return Page.objects.filter(pk=given).first()
+    path = request.GET.get("path")
+    if path:
+        return Page.objects.filter(path=path).first()
+    return None
+
+
 def _device(request) -> str:
     value = request.GET.get("device", "")
     return value if value in dict(Device.choices) else ""
@@ -83,7 +94,18 @@ def heat_data(request):
     Cells come back as flat triples so the payload stays small: a page with
     a busy grid is a few thousand numbers, not a few thousand objects.
     """
-    page = get_object_or_404(Page, pk=request.GET.get("page"))
+    # A page can be asked for by id or by path. The path form matters
+    # because the overlay has to open on pages that have no recorded data
+    # yet: seeing an empty map is an answer too, and it is the only way to
+    # check a page before it has traffic.
+    page = _page_from(request)
+    if page is None:
+        return JsonResponse({
+            "page": {"id": 0, "path": request.GET.get("path", ""), "title": ""},
+            "days": 0, "device": "", "columns": get_setting("GRID_COLUMNS"),
+            "rows": get_setting("GRID_ROWS"), "peak": 0, "cells": [],
+            "scroll": [0] * 20, "views": 0, "clicks": 0, "elements": [],
+        })
     start, end, days = _range(request)
     device = _device(request)
     kinds = request.GET.get("kinds", "click,rage,dead").split(",")

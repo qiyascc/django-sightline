@@ -178,8 +178,13 @@
 
   function load() {
     state.kinds = state.mode === "move" ? "move" : "click,rage,dead";
+    // Asked by id when the panel knows it, by path otherwise. A page with
+    // no recorded data still opens: an empty map is an answer.
+    var which = config.pageId
+      ? "?page=" + encodeURIComponent(config.pageId)
+      : "?path=" + encodeURIComponent(config.path || location.pathname);
     var url = config.dataUrl
-      + "?page=" + encodeURIComponent(config.pageId)
+      + which
       + "&days=" + state.days
       + "&device=" + encodeURIComponent(state.device)
       + "&kinds=" + encodeURIComponent(state.kinds);
@@ -190,8 +195,9 @@
       .then(function (data) {
         state.data = data;
         root.querySelector(".sl-path").textContent = data.page.path;
-        root.querySelector(".sl-stats").textContent =
-          data.views + " views, " + data.clicks + " clicks";
+        root.querySelector(".sl-stats").textContent = data.views
+          ? data.views + " views, " + data.clicks + " clicks"
+          : "nothing recorded for this page yet";
         draw();
       })
       .catch(function () {

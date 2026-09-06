@@ -119,6 +119,34 @@
 .sl-card b { display: block; font-size: 26px; line-height: 1.1; }
 .sl-card span { font-size: 12px; opacity: .7; }
 
+.sl-gap { width: 12px; }
+.sl-sub { opacity: .6; font-size: 12px; }
+
+/* Wide tables get their own scroller so the page body never scrolls
+   sideways. On a phone that is still not enough, see the stack below. */
+.sl-scrollx { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.sl-open {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #dcdcdc);
+  border-radius: 8px;
+}
+.sl-open label { font-size: 12px; opacity: .7; }
+.sl-open__row { display: flex; gap: 8px; }
+.sl-open input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color, #dcdcdc);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.sl-open button { border: 0; cursor: pointer; }
+
 .sl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .sl-table th, .sl-table td {
   text-align: left;
@@ -150,7 +178,60 @@
 }
 .sl-tag--warn { background: #d38b00; }
 .sl-tag--quiet { background: rgba(127, 127, 127, .25); color: inherit; }
-.sl-empty { padding: 26px; text-align: center; opacity: .6; }
+.sl-empty { padding: 20px 4px; display: grid; gap: 8px; max-width: 62ch; }
+.sl-empty b { font-size: 14px; }
+.sl-empty p { margin: 0; font-size: 13px; line-height: 1.6; opacity: .75; }
+.sl-empty code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, .18);
+  font-size: 12px;
+}
+.sl-note { font-size: 12px !important; opacity: .6 !important; }
+
+/* On a phone a five column table cannot fit, and the column that gets cut
+   off is the last one, which is exactly where the button lives. So below
+   this width the table stops being a table: every row becomes a card, the
+   header labels move into the cells, and the button spans the full width
+   where nothing can push it off screen. */
+@media (max-width: 720px) {
+  .sl-table--stack thead { display: none; }
+  .sl-table--stack tbody,
+  .sl-table--stack tr,
+  .sl-table--stack td { display: block; width: 100%; }
+  .sl-table--stack tr {
+    border: 1px solid var(--border-color, #dcdcdc);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .sl-table--stack td {
+    border: 0;
+    padding: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+  .sl-table--stack td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    opacity: .6;
+    flex: 0 0 auto;
+  }
+  .sl-table--stack td.num { text-align: right; }
+  .sl-table--stack td.act { display: block; padding-top: 10px; }
+  .sl-table--stack td.act .sl-btn {
+    display: block;
+    text-align: center;
+    padding: 9px 10px;
+  }
+  .sl-table--stack tr.sl-emptyrow { border: 0; padding: 0; }
+  .sl-table--stack .sl-emptyrow td { display: block; }
+  .sl-table--stack .sl-emptyrow td::before { content: none; }
+}
 
 /* ------------------------------------------------------------- replay */
 .sl-player { display: grid; grid-template-columns: 1fr 240px; gap: 14px; }

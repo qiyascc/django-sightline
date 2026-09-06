@@ -15,13 +15,26 @@
         {% if value == 1 %}Today{% else %}{{ value }} days{% endif %}
       </a>
     {% endfor %}
-    <span style="width:12px"></span>
+    <span class="sl-gap"></span>
     <a href="?days={{ days }}" {% if not device %}data-on{% endif %}>All devices</a>
     {% for value, label in devices %}
       <a href="?days={{ days }}&device={{ value }}"
          {% if value == device %}data-on{% endif %}>{{ label }}</a>
     {% endfor %}
   </div>
+
+  {% comment %}
+  Any page can be opened, recorded or not. Checking a page before it has
+  traffic is a normal thing to want, and an empty map is an answer.
+  {% endcomment %}
+  <form class="sl-open" id="sl-open">
+    <label for="sl-open-path">Open the heatmap on any page</label>
+    <div class="sl-open__row">
+      <input type="text" id="sl-open-path" value="/" spellcheck="false"
+             placeholder="/products/">
+      <button type="submit" class="sl-btn">Open</button>
+    </div>
+  </form>
 
   <div class="sl-cards">
     <div class="sl-card"><b>{{ totals.n }}</b><span>Sessions</span></div>
@@ -32,78 +45,124 @@
 
   <div>
     <h2>Pages</h2>
-    <table class="sl-table">
-      <thead>
-        <tr>
-          <th>Path</th>
-          <th class="num">Views</th>
-          <th class="num">Clicks</th>
-          <th class="num">Avg scroll</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for page in pages %}
+    <div class="sl-scrollx">
+      <table class="sl-table sl-table--stack">
+        <thead>
           <tr>
-            <td>
-              <div>{{ page.path }}</div>
-              {% if page.title %}<div style="opacity:.6;font-size:12px">{{ page.title }}</div>{% endif %}
-            </td>
-            <td class="num">{{ page.views }}</td>
-            <td class="num">{{ page.clicks }}</td>
-            <td class="num">{{ page.scroll }}%</td>
-            <td>
-              <a class="sl-btn" target="_blank" rel="noopener"
-                 href="{{ page.path }}?sightline=overlay&sl_page={{ page.id }}&sl_days={{ days }}{% if device %}&sl_device={{ device }}{% endif %}">
-                Open heatmap
-              </a>
-            </td>
+            <th>Path</th>
+            <th class="num">Views</th>
+            <th class="num">Clicks</th>
+            <th class="num">Avg scroll</th>
+            <th></th>
           </tr>
-        {% empty %}
-          <tr><td colspan="5" class="sl-empty">Nothing recorded in this range yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for page in pages %}
+            <tr>
+              <td data-label="Path">
+                <div>{{ page.path }}</div>
+                {% if page.title %}<div class="sl-sub">{{ page.title }}</div>{% endif %}
+              </td>
+              <td class="num" data-label="Views">{{ page.views }}</td>
+              <td class="num" data-label="Clicks">{{ page.clicks }}</td>
+              <td class="num" data-label="Avg scroll">{{ page.scroll }}%</td>
+              <td class="act">
+                <a class="sl-btn" target="_blank" rel="noopener"
+                   href="{{ page.path }}?sightline=overlay&sl_page={{ page.id }}&sl_days={{ days }}{% if device %}&sl_device={{ device }}{% endif %}">
+                  Open heatmap
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr class="sl-emptyrow">
+              <td colspan="5">
+                <div class="sl-empty">
+                  <b>Nothing recorded in this range yet.</b>
+                  <p>
+                    Your own visits are not recorded. Staff are excluded by
+                    default, which is why browsing the site while signed in to
+                    the admin leaves this empty. Open the site in a private
+                    window, or in a browser where you are signed out, and the
+                    first visit shows up here within a few seconds.
+                  </p>
+                  <p class="sl-note">
+                    To record staff as well, set
+                    <code>SIGHTLINE = {"IGNORE_STAFF": False}</code> in settings.
+                    Useful while testing, noisy in daily use.
+                  </p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div>
     <h2>Recent visits</h2>
-    <table class="sl-table">
-      <thead>
-        <tr>
-          <th>Started</th>
-          <th>Device</th>
-          <th class="num">Pages</th>
-          <th class="num">Length</th>
-          <th>Signals</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in sessions %}
+    <div class="sl-scrollx">
+      <table class="sl-table sl-table--stack">
+        <thead>
           <tr>
-            <td>{{ row.started_at|date:"d.m.Y H:i" }}</td>
-            <td>{{ row.get_device_display }}</td>
-            <td class="num">{{ row.page_count }}</td>
-            <td class="num">{{ row.duration_seconds }}s</td>
-            <td>
-              {% if row.has_rage %}<span class="sl-tag">rage</span>{% endif %}
-              {% if row.has_dead_click %}<span class="sl-tag sl-tag--warn">dead</span>{% endif %}
-              {% if row.has_error %}<span class="sl-tag">error</span>{% endif %}
-              {% if not row.has_rage and not row.has_dead_click and not row.has_error %}
-                <span class="sl-tag sl-tag--quiet">quiet</span>
-              {% endif %}
-            </td>
-            <td>
-              <a class="sl-btn sl-btn--ghost"
-                 href="{% url 'sightline:replay' row.pk %}">Replay</a>
-            </td>
+            <th>Started</th>
+            <th>Device</th>
+            <th class="num">Pages</th>
+            <th class="num">Length</th>
+            <th>Signals</th>
+            <th></th>
           </tr>
-        {% empty %}
-          <tr><td colspan="6" class="sl-empty">No visits recorded yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for row in sessions %}
+            <tr>
+              <td data-label="Started">{{ row.started_at|date:"d.m.Y H:i" }}</td>
+              <td data-label="Device">{{ row.get_device_display }}</td>
+              <td class="num" data-label="Pages">{{ row.page_count }}</td>
+              <td class="num" data-label="Length">{{ row.duration_seconds }}s</td>
+              <td data-label="Signals">
+                {% if row.has_rage %}<span class="sl-tag">rage</span>{% endif %}
+                {% if row.has_dead_click %}<span class="sl-tag sl-tag--warn">dead</span>{% endif %}
+                {% if row.has_error %}<span class="sl-tag">error</span>{% endif %}
+                {% if not row.has_rage and not row.has_dead_click and not row.has_error %}
+                  <span class="sl-tag sl-tag--quiet">quiet</span>
+                {% endif %}
+              </td>
+              <td class="act">
+                <a class="sl-btn sl-btn--ghost"
+                   href="{% url 'sightline:replay' row.pk %}">Replay</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr class="sl-emptyrow">
+              <td colspan="6">
+                <div class="sl-empty">
+                  <b>No visits recorded yet.</b>
+                  <p>The same reason as above: staff visits are skipped.</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
+
+<script>
+(function () {
+  var form = document.getElementById("sl-open");
+  if (!form) { return; }
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var path = document.getElementById("sl-open-path").value.trim() || "/";
+    if (path.charAt(0) !== "/") { path = "/" + path; }
+    var sep = path.indexOf("?") === -1 ? "?" : "&";
+    window.open(
+      path + sep + "sightline=overlay&sl_path=" + encodeURIComponent(path)
+        + "&sl_days={{ days }}{% if device %}&sl_device={{ device }}{% endif %}",
+      "_blank", "noopener");
+  });
+})();
+</script>
 {% endblock %}

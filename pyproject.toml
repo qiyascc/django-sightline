@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-sightline"
-version = "0.1.0"
+version = "0.1.1"
 description = "Click heatmaps, scroll maps and session replay for Django, with an admin panel and a live overlay."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -345,3 +345,70 @@ class UtilTests(TestCase):
 
     def test_paths_are_capped(self):
         self.assertLessEqual(len(clean_path("/" + "a" * 900)), 500)
+
+
+class OpenAnyPageTests(TestCase):
+    """
+    A page with no recorded data still opens.
+
+    Checking a page before it has traffic is a normal thing to want, and an
+    empty map is an answer. Refusing with a 404 would send the person
+    looking for a bug that is not there.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_user("boss6", password="x",
+                                              is_staff=True, is_superuser=True)
+        self.client.force_login(self.staff)
+
+    def test_an_unknown_path_answers_with_an_empty_map(self):
+        answer = self.client.get(reverse("sightline:heat_data"),
+                                 {"path": "/never-visited/"})
+        self.assertEqual(answer.status_code, 200)
+        data = answer.json()
+        self.assertEqual(data["cells"], [])
+        self.assertEqual(data["views"], 0)
+
+    def test_a_known_path_answers_with_its_numbers(self):
+        page = Page.objects.create(path="/shop/")
+        HeatCell.objects.create(page=page, day="2026-01-01",
+                                device=Device.DESKTOP, kind="click",
+                                col=3, row=4, count=2)
+        answer = self.client.get(reverse("sightline:heat_data"),
+                                 {"path": "/shop/", "days": 3650})
+        self.assertEqual(answer.json()["cells"], [[3, 4, 2]])
+
+    def test_no_page_and_no_path_is_still_not_an_error(self):
+        answer = self.client.get(reverse("sightline:heat_data"))
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.json()["cells"], [])
+
+    def test_the_overlay_carries_the_path_when_there_is_no_id(self):
+        html = self.client.get("/shop/?sightline=overlay").content.decode()
+        self.assertIn('"path": "/shop/"', html)
+
+    def test_the_panel_offers_a_way_to_open_any_page(self):
+        html = self.client.get(reverse("sightline:dashboard")).content.decode()
+        self.assertIn('id="sl-open-path"', html)
+
+    def test_the_empty_state_explains_why_it_is_empty(self):
+        """
+        The most common cause of an empty panel is that the person reading
+        it is staff. Saying so on the screen saves a support round trip.
+        """
+        html = self.client.get(reverse("sightline:dashboard")).content.decode()
+        self.assertIn("Your own visits are not recorded", html)
+        self.assertIn("IGNORE_STAFF", html)
+
+    def test_the_template_has_no_leaking_comments(self):
+        """
+        Django only strips a {# #} comment when it sits on one line. A
+        multi line one is printed to the page as text, which is how this
+        exact mistake shows up in production.
+        """
+        html = self.client.get(reverse("sightline:dashboard")).content.decode()
+        self.assertNotIn("{#", html)
+
+    def test_the_tables_stack_on_a_phone(self):
+        html = self.client.get(reverse("sightline:dashboard")).content.decode()
+        self.assertIn("sl-table--stack", html)
