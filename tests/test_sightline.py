@@ -7,10 +7,13 @@ can open. A broken chart is obvious. A wrong number is not.
 """
 import json
 import uuid
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from sightline.models import (Device, ElementStat, Event, HeatCell, Page,
                               PageView, ScrollBand, Session)
@@ -571,3 +574,101 @@ class OverlayNoiseTests(TestCase):
         from django.contrib.staticfiles import finders
         source = open(finders.find("sightline/js/tracker.js"), encoding="utf-8").read()
         self.assertIn("if (!now) { continue; }", source)
+
+
+class VisitListTests(TestCase):
+    """
+    The full visit list.
+
+    The dashboard shows the last forty inside a date range, which made
+    older visits look deleted. Nothing was ever deleted; there was just
+    no page that showed them.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            username="boss", password="x", is_staff=True, is_superuser=True)
+        self.client.force_login(self.staff)
+        self.shopper = User.objects.create_user(username="shopper", password="x")
+
+    def _visit(self, **kw):
+        return Session.objects.create(visitor_key="k" * 10, **kw)
+
+    def test_it_lists_more_than_the_dashboard_does(self):
+        for _ in range(60):
+            self._visit()
+        response = self.client.get(reverse("sightline:sessions"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["page"].object_list), 50)
+        self.assertEqual(response.context["total"], 60)
+
+    def test_an_old_visit_is_still_there(self):
+        old = self._visit(started_at=timezone.now() - timedelta(days=400))
+        response = self.client.get(reverse("sightline:sessions"))
+        self.assertIn(old, response.context["page"].object_list)
+
+    def test_it_can_show_only_people_it_knows(self):
+        known = self._visit(user=self.shopper)
+        self._visit()
+        response = self.client.get(reverse("sightline:sessions"), {"signal": "known"})
+        self.assertEqual(list(response.context["page"].object_list), [known])
+
+    def test_it_can_be_searched_by_email(self):
+        self.shopper.email = "aysel@example.com"
+        self.shopper.save()
+        mine = self._visit(user=self.shopper)
+        self._visit()
+        response = self.client.get(reverse("sightline:sessions"), {"q": "aysel"})
+        self.assertEqual(list(response.context["page"].object_list), [mine])
+
+    def test_it_is_staff_only(self):
+        self.client.logout()
+        response = self.client.get(reverse("sightline:sessions"))
+        self.assertNotEqual(response.status_code, 200)
+
+
+class SignInDuringAVisitTests(TestCase):
+    """A guest who signs in mid visit should stop being anonymous."""
+
+    def test_the_session_picks_up_the_account(self):
+        person = User.objects.create_user(username="late", password="x")
+        first = self.client.post(
+            reverse("sightline:collect"),
+            data=json.dumps({"path": "/", "events": []}),
+            content_type="application/json")
+        self.assertEqual(first.status_code, 200)
+        session = Session.objects.get()
+        self.assertIsNone(session.user_id)
+
+        # The browser sends the id it was given back with every batch;
+        # without it the next batch would start a separate visit.
+        self.client.force_login(person)
+        self.client.post(
+            reverse("sightline:collect"),
+            data=json.dumps({"session": str(session.pk),
+                             "path": "/next/", "events": []}),
+            content_type="application/json")
+        session.refresh_from_db()
+        self.assertEqual(session.user_id, person.pk)
+        self.assertEqual(Session.objects.count(), 1)
+
+
+class PruneKeepsVisitsTests(TestCase):
+    """Old events go, the visits stay unless somebody asks otherwise."""
+
+    def test_visits_survive_the_default_prune(self):
+        old = timezone.now() - timedelta(days=400)
+        session = Session.objects.create(visitor_key="k", started_at=old)
+        page = Page.objects.create(path="/x/")
+        view = PageView.objects.create(session=session, page=page, started_at=old)
+        Event.objects.create(pageview=view, kind="click", x_pct=10, y_pct=10)
+
+        call_command("sightline_prune", "--days", "1")
+        self.assertTrue(Session.objects.filter(pk=session.pk).exists())
+        self.assertEqual(Event.objects.count(), 0)
+
+    def test_the_flag_removes_them(self):
+        old = timezone.now() - timedelta(days=400)
+        session = Session.objects.create(visitor_key="k", started_at=old)
+        call_command("sightline_prune", "--days", "1", "--sessions")
+        self.assertFalse(Session.objects.filter(pk=session.pk).exists())

@@ -1,0 +1,128 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'sightline/css/sightline.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sl-wrap">
+
+  <div class="sl-head">
+    <h1>Visits</h1>
+    <p class="sl-note">
+      Every visit ever recorded, {{ total }} in total. Nothing here is
+      removed on a schedule; the panel's own list is short only because a
+      dashboard is for glancing, not for searching.
+    </p>
+  </div>
+
+  <form class="sl-open" method="get">
+    <input type="search" name="q" value="{{ query }}"
+           placeholder="Email, visitor key or referrer">
+    {% if signal %}<input type="hidden" name="signal" value="{{ signal }}">{% endif %}
+    {% if device %}<input type="hidden" name="device" value="{{ device }}">{% endif %}
+    <button type="submit" class="sl-btn">Search</button>
+  </form>
+
+  <div class="sl-filters">
+    <a href="?{% if device %}device={{ device }}{% endif %}" {% if not signal %}data-on{% endif %}>All</a>
+    <a href="?signal=known{% if device %}&device={{ device }}{% endif %}"
+       {% if signal == 'known' %}data-on{% endif %}>Signed in</a>
+    <a href="?signal=guest{% if device %}&device={{ device }}{% endif %}"
+       {% if signal == 'guest' %}data-on{% endif %}>Guests</a>
+    <a href="?signal=rage{% if device %}&device={{ device }}{% endif %}"
+       {% if signal == 'rage' %}data-on{% endif %}>Rage</a>
+    <a href="?signal=dead{% if device %}&device={{ device }}{% endif %}"
+       {% if signal == 'dead' %}data-on{% endif %}>Dead clicks</a>
+    <a href="?signal=error{% if device %}&device={{ device }}{% endif %}"
+       {% if signal == 'error' %}data-on{% endif %}>Errors</a>
+    <span class="sl-gap"></span>
+    <a href="?{% if signal %}signal={{ signal }}{% endif %}" {% if not device %}data-on{% endif %}>All devices</a>
+    {% for value, label in devices %}
+      <a href="?{% if signal %}signal={{ signal }}&{% endif %}device={{ value }}"
+         {% if value == device %}data-on{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="sl-scrollx">
+    <table class="sl-table sl-table--stack">
+      <thead>
+        <tr>
+          <th>Who</th>
+          <th>Started</th>
+          <th>Device</th>
+          <th class="num">Pages</th>
+          <th class="num">Length</th>
+          <th>Signals</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in page %}
+          <tr>
+            {% comment %}
+            A visit belongs to a person when one was signed in at any
+            point during it. When nobody was, the salted visitor key is
+            all there is, and it is shown as such rather than as a blank:
+            a blank reads as missing data, a key reads as a stranger.
+            {% endcomment %}
+            <td data-label="Who">
+              {% if row.user %}
+                <b>{{ row.user }}</b>
+              {% else %}
+                <span class="sl-tag sl-tag--quiet">guest</span>
+                <code class="sl-key">{{ row.visitor_key|slice:":10" }}</code>
+              {% endif %}
+            </td>
+            <td data-label="Started">{{ row.started_at|date:"d.m.Y H:i" }}</td>
+            <td data-label="Device">{{ row.get_device_display }}</td>
+            <td class="num" data-label="Pages">{{ row.page_count }}</td>
+            <td class="num" data-label="Length">{{ row.duration_seconds }}s</td>
+            <td data-label="Signals">
+              {% if row.has_rage %}<span class="sl-tag">rage</span>{% endif %}
+              {% if row.has_dead_click %}<span class="sl-tag sl-tag--warn">dead</span>{% endif %}
+              {% if row.has_error %}<span class="sl-tag">error</span>{% endif %}
+              {% if not row.has_rage and not row.has_dead_click and not row.has_error %}
+                <span class="sl-tag sl-tag--quiet">quiet</span>
+              {% endif %}
+            </td>
+            <td class="act">
+              <a class="sl-btn sl-btn--ghost"
+                 href="{% url 'sightline:replay' row.pk %}">Replay</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="sl-emptyrow">
+            <td colspan="7">
+              <div class="sl-empty">
+                <b>Nothing matches.</b>
+                <p>Clear the filters, or check that staff visits are not
+                   being skipped by IGNORE_STAFF.</p>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page.paginator.num_pages > 1 %}
+    <nav class="sl-pager">
+      {% if page.has_previous %}
+        <a class="sl-btn sl-btn--ghost"
+           href="?{% if signal %}signal={{ signal }}&{% endif %}{% if device %}device={{ device }}&{% endif %}{% if query %}q={{ query }}&{% endif %}page={{ page.previous_page_number }}">Newer</a>
+      {% endif %}
+      <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+        <a class="sl-btn sl-btn--ghost"
+           href="?{% if signal %}signal={{ signal }}&{% endif %}{% if device %}device={{ device }}&{% endif %}{% if query %}q={{ query }}&{% endif %}page={{ page.next_page_number }}">Older</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+
+  <p class="sl-note">
+    <a href="{% url 'sightline:dashboard' %}">Back to the panel</a>
+  </p>
+</div>
+{% endblock %}

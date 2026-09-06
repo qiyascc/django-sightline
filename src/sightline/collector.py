@@ -93,7 +93,16 @@ def _session_for(payload, request, agent, width, height) -> Session:
     if given:
         found = Session.objects.filter(pk=given, last_seen_at__gte=cutoff).first()
         if found:
-            Session.objects.filter(pk=found.pk).update(last_seen_at=timezone.now())
+            fresh = {"last_seen_at": timezone.now()}
+            # Somebody who browsed as a guest and then signed in keeps the
+            # same session. Without this the visit stays anonymous for its
+            # whole length, and the most interesting recordings, the ones
+            # that end in a sign up or a purchase, are the ones you cannot
+            # put a name to.
+            user = getattr(request, "user", None)
+            if found.user_id is None and getattr(user, "is_authenticated", False):
+                fresh["user"] = user
+            Session.objects.filter(pk=found.pk).update(**fresh)
             return found
 
     user = getattr(request, "user", None)

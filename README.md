@@ -81,7 +81,13 @@ Open the admin. There is a **Sightline panel** entry in the sidebar.
 
 * **Pages** lists everything recorded. "Open heatmap" opens that page on
   your live site with the overlay on top of it.
-* **Recent visits** lists sessions. "Replay" plays one back.
+* **Recent visits** lists the latest sessions. "Replay" plays one back.
+  "See all" opens the full list: every visit ever recorded, paged and
+  filterable by person, device or signal.
+
+Visits are attributed to an account whenever somebody was signed in at
+any point during them, including a guest who signs in halfway through.
+Everyone else is listed as a guest with their salted visitor key.
 
 In the overlay you can switch between clicks, attention and scroll depth,
 change the date range, filter by device and change the opacity. Close puts
@@ -125,6 +131,7 @@ SIGHTLINE = {
     "MAX_BATCH": 500,
     "SALT": "",                     # defaults to SECRET_KEY
     "MASK_SELECTORS": [],           # never read text inside these
+    "PRUNE_SESSIONS": False,        # the prune drops events, not visits
 }
 ```
 
@@ -149,6 +156,12 @@ python manage.py sightline_stats --days 7   # quick summary
 Run the prune from cron, weekly is enough. Heatmap numbers are aggregates
 and survive pruning, so old maps still draw after their raw events are
 gone.
+
+The visits themselves are **not** deleted. Events are the bulk; a visit
+row is a few hundred bytes and it is what the panel lists, so removing it
+turns months of history into an empty screen. Set
+`SIGHTLINE = {"PRUNE_SESSIONS": True}`, or pass `--sessions`, only if the
+session table itself has become a storage problem.
 
 ## Privacy
 

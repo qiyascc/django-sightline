@@ -100,11 +100,14 @@
   </div>
 
   <div>
-    <h2>Recent visits</h2>
+    <h2>Recent visits
+      <a class="sl-more" href="{% url 'sightline:sessions' %}">See all &rarr;</a>
+    </h2>
     <div class="sl-scrollx">
       <table class="sl-table sl-table--stack">
         <thead>
           <tr>
+            <th>Who</th>
             <th>Started</th>
             <th>Device</th>
             <th class="num">Pages</th>
@@ -116,6 +119,10 @@
         <tbody>
           {% for row in sessions %}
             <tr>
+              <td data-label="Who">
+                {% if row.user %}<b>{{ row.user }}</b>
+                {% else %}<span class="sl-tag sl-tag--quiet">guest</span>{% endif %}
+              </td>
               <td data-label="Started">{{ row.started_at|date:"d.m.Y H:i" }}</td>
               <td data-label="Device">{{ row.get_device_display }}</td>
               <td class="num" data-label="Pages">{{ row.page_count }}</td>
@@ -135,7 +142,7 @@
             </tr>
           {% empty %}
             <tr class="sl-emptyrow">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="sl-empty">
                   <b>No visits recorded yet.</b>
                   <p>The same reason as above: staff visits are skipped.</p>

@@ -27,6 +27,13 @@ DEFAULTS = {
     # then dropped after this many days. Rollups are kept forever.
     "RETAIN_DAYS": 90,
 
+    # Whether the prune also removes the visits themselves once their
+    # events are gone. Off by default, and deliberately so: a visit row
+    # is a few hundred bytes and it is what the panel lists, so dropping
+    # it makes months of history look like it was never recorded. Turn it
+    # on only if the session table itself has become a storage problem.
+    "PRUNE_SESSIONS": False,
+
     # Sessions with no activity for this long are considered finished.
     "SESSION_TIMEOUT_MINUTES": 30,
 

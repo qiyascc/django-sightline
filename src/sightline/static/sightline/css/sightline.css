@@ -326,3 +326,11 @@
 .sl-step span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .sl-step em { font-style: normal; opacity: .6; font-size: 11px; }
 .sl-note { font-size: 12px; opacity: .7; line-height: 1.5; }
+
+/* Visit list: paging, the visitor key and the header note. */
+.sl-head h1 { margin: 0 0 4px; font-size: 20px; }
+.sl-note { margin: 0 0 14px; font-size: 12.5px; line-height: 1.5; opacity: .75; }
+.sl-key { font-size: 11px; opacity: .6; }
+.sl-pager { display: flex; align-items: center; justify-content: center;
+            gap: 12px; margin-top: 16px; font-size: 12.5px; }
+.sl-more { margin-left: 10px; font-size: 12px; font-weight: 400; }

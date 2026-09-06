@@ -249,6 +249,64 @@ def dashboard(request):
 
 @staff_member_required
 @require_GET
+def sessions(request):
+    """
+    Every recorded visit, not just the last few.
+
+    The dashboard shows a short list inside the chosen date range, which
+    is the right thing for a glance. It is the wrong thing when you are
+    looking for one particular visit: the range hides anything older and
+    the cut hides anything past the fortieth row, so visits look deleted
+    when they are all still there.
+
+    This page has no date range at all by default and pages through the
+    lot. Filters narrow it down: by person, by device, by what went
+    wrong.
+    """
+    from django.core.paginator import Paginator
+
+    rows = Session.objects.select_related("user").order_by("-started_at")
+
+    signal = request.GET.get("signal", "")
+    if signal == "rage":
+        rows = rows.filter(has_rage=True)
+    elif signal == "dead":
+        rows = rows.filter(has_dead_click=True)
+    elif signal == "error":
+        rows = rows.filter(has_error=True)
+    elif signal == "known":
+        rows = rows.filter(user__isnull=False)
+    elif signal == "guest":
+        rows = rows.filter(user__isnull=True)
+
+    device = _device(request)
+    if device:
+        rows = rows.filter(device=device)
+
+    query = (request.GET.get("q") or "").strip()
+    if query:
+        rows = rows.filter(
+            Q(user__email__icontains=query)
+            | Q(visitor_key__icontains=query)
+            | Q(referrer__icontains=query))
+
+    pages = Paginator(rows, 50)
+    page = pages.get_page(request.GET.get("page"))
+
+    return render(request, "sightline/sessions.html", {
+        **_admin_context(request),
+        "title": "Sightline visits",
+        "page": page,
+        "signal": signal,
+        "device": device,
+        "devices": Device.choices,
+        "query": query,
+        "total": Session.objects.count(),
+    })
+
+
+@staff_member_required
+@require_GET
 def replay(request, session_id):
     """The player page. All the work happens in the browser."""
     session = get_object_or_404(Session, pk=session_id)
