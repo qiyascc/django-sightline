@@ -1,15 +1,7 @@
-"""
-Drop old raw events.
+###############
+# Qiyas Sadıqov CC
+###############
 
-Grid cells, scroll bands and element counts are the durable part and are
-never touched here. Events are the bulk, and their only reader is the
-replay player, which nobody opens for a visit from three months ago.
-
-The visits themselves stay unless SIGHTLINE["PRUNE_SESSIONS"] says
-otherwise. A visit row is small and it is what the panel lists: deleting
-it turns months of recorded history into an empty screen, which reads as
-a broken install rather than as a retention policy doing its job.
-"""
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
@@ -53,8 +45,6 @@ class Command(BaseCommand):
                    f" The {counts[0]} visits themselves are kept."))
             return
 
-        # Events go first and in batches: one delete of a few million rows
-        # locks the table long enough to be noticed on a live site.
         while True:
             ids = list(events.values_list("pk", flat=True)[:5000])
             if not ids:

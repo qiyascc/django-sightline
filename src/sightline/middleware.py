@@ -1,13 +1,7 @@
-"""
-Script injection.
+###############
+# Qiyas Sadıqov CC
+###############
 
-The tracker could be added to a base template by hand, but then every
-project has to remember it and every new template can forget it. One
-middleware, applied once, covers the whole site.
-
-Only HTML responses are touched, and only successful ones. Anything else
-is returned untouched, byte for byte.
-"""
 from __future__ import annotations
 
 import json
@@ -22,8 +16,6 @@ BODY_CLOSE = b"</body>"
 
 
 class SightlineMiddleware:
-    """Adds the collector to pages that are allowed to carry it."""
-
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -43,8 +35,6 @@ class SightlineMiddleware:
             snippet = (self._overlay(request) if overlay
                        else self._snippet(request)).encode("utf-8")
         except NoReverseMatch:
-            # The package is installed but its URLs are not mounted. Better
-            # to serve the page than to raise on every request.
             return response
 
         body = response.content
@@ -69,13 +59,6 @@ class SightlineMiddleware:
         return should_record(request)
 
     def _overlay_wanted(self, request) -> bool:
-        """
-        The heatmap overlay is opened from the panel and is staff only.
-
-        The check is on the request, not on a token in the link, so a
-        shared URL shows a plain page to anybody who is not signed in as
-        staff.
-        """
         if request.GET.get("sightline") != "overlay":
             return False
         user = getattr(request, "user", None)

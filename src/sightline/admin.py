@@ -1,19 +1,7 @@
-"""
-Admin.
+###############
+# Qiyas Sadıqov CC
+###############
 
-Two different things live here and it is worth saying which is which.
-
-The model admins are the raw data: read only, useful when something looks
-wrong and you want to see the rows. Nobody should have to work from them
-day to day.
-
-The panel is the thing people actually open. It is a normal view, and the
-admin entry for it is a proxy model whose changelist redirects there. That
-is a small trick, but it is the only way to get a sidebar link without
-asking the host project to swap its AdminSite, and it keeps the package
-drop in for projects using stock Django admin, Unfold, Jazzmin or anything
-else that reads the standard registry.
-"""
 from __future__ import annotations
 
 from django.contrib import admin
@@ -26,8 +14,6 @@ from .models import (ElementStat, Event, HeatCell, Page, PageView, Panel,
 
 
 class ReadOnly(admin.ModelAdmin):
-    """Recorded data is never edited by hand. It is evidence, not content."""
-
     def has_add_permission(self, request):
         return False
 
@@ -37,8 +23,6 @@ class ReadOnly(admin.ModelAdmin):
 
 @admin.register(Panel)
 class PanelAdmin(admin.ModelAdmin):
-    """The sidebar entry. Opening it goes straight to the panel."""
-
     def has_add_permission(self, request):
         return False
 

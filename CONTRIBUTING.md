@@ -15,7 +15,8 @@ python -m pytest tests -q
 * Every behaviour change comes with a test. Tests here lean towards the
   quiet failures: wrong counts, wrong people recorded, data leaking to
   somebody who should not see it.
-* Comments explain why, not what. The code already says what.
+* No comments in the code. Names and tests carry the meaning, the README
+  and the changelog carry the reasons.
 * No dependencies. The tracker is vanilla JavaScript on purpose and the
   package depends on Django alone.
 * Nothing in the recorder may throw into the page it records.

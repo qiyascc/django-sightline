@@ -1,18 +1,3 @@
-/*
- * Sightline overlay.
- *
- * Draws the heatmap on top of the real page. Staff only, opened from the
- * panel, and it never touches the page it covers: everything lives in one
- * fixed canvas plus one control bar, both removed when the overlay closes.
- *
- * The heat is drawn in two passes, which is how heatmaps have always been
- * made and why they look like heat rather than like dots:
- *
- *   1. Every point is painted as a soft black circle whose darkness is its
- *      weight. Overlapping points add up, so busy areas go darker.
- *   2. That greyscale is then mapped through a colour ramp, one pixel at a
- *      time. The value becomes the colour and the alpha.
- */
 (function (window, document) {
   "use strict";
 
@@ -74,9 +59,6 @@
     };
   }
 
-  // ---------------------------------------------------------------- ramp
-  // Built once into a 256 pixel strip and sampled per pixel. Computing a
-  // gradient per point would be slower and would band.
   var ramp = (function () {
     var c = document.createElement("canvas");
     c.width = 256; c.height = 1;
@@ -138,7 +120,6 @@
     var step = size.h / bands.length;
     for (var i = 0; i < bands.length; i++) {
       var pct = bands[i];
-      // Blue where everybody looked, fading out where nobody reached.
       ctx.fillStyle = "rgba(20,120,255," + (0.10 + (pct / 100) * 0.45) + ")";
       ctx.fillRect(0, i * step, size.w, step + 1);
 
@@ -165,8 +146,6 @@
     var cols = state.data.columns || 60;
     var rows = state.data.rows || 200;
     var points = state.data.cells.map(function (cell) {
-      // Cells are stored as fractions of the page, so they land in the
-      // right place whatever this screen is doing.
       return [
         ((cell[0] + 0.5) / cols) * size.w,
         ((cell[1] + 0.5) / rows) * size.h,
@@ -178,8 +157,6 @@
 
   function load() {
     state.kinds = state.mode === "move" ? "move" : "click,rage,dead";
-    // Asked by id when the panel knows it, by path otherwise. A page with
-    // no recorded data still opens: an empty map is an answer.
     var which = config.pageId
       ? "?page=" + encodeURIComponent(config.pageId)
       : "?path=" + encodeURIComponent(config.path || location.pathname);
@@ -205,7 +182,6 @@
       });
   }
 
-  // ---------------------------------------------------------------- controls
   root.querySelector(".sl-mode").addEventListener("change", function (e) {
     state.mode = e.target.value;
     load();

@@ -1,15 +1,7 @@
-"""
-The write path.
+###############
+# Qiyas Sadıqov CC
+###############
 
-The browser sends batches, this module turns them into rows. It runs on
-every recorded page view, so two rules shape it:
-
-  * Nothing here may raise into the response. A broken payload is dropped,
-    never reported to the visitor, and never allowed to break the page.
-  * Nothing here may be slow. Counters are updated with F expressions,
-    grid cells with a single upsert per cell, and no query runs inside a
-    per-event loop.
-"""
 from __future__ import annotations
 
 import logging
@@ -20,14 +12,12 @@ from django.db.models import F
 from django.utils import timezone
 
 from .conf import get_setting
-from .models import (Device, ElementStat, Event, HeatCell, Page, PageView,
+from .models import (ElementStat, Event, HeatCell, Page, PageView,
                      ScrollBand, Session)
 from .utils import bucket, clean_path, device_of, is_excluded
 
 log = logging.getLogger("sightline")
 
-# Anything the browser sends that is not one of these is dropped. An open
-# list would let a stray script fill the table with junk kinds.
 KINDS = {choice[0] for choice in Event.Kind.choices}
 
 
@@ -48,12 +38,6 @@ def _pct(value):
 
 @transaction.atomic
 def ingest(payload: dict, *, request) -> dict:
-    """
-    One batch from one page.
-
-    Returns the ids the browser should keep using, so the next batch of the
-    same visit does not open a second session.
-    """
     url = payload.get("url") or "/"
     path = clean_path(url)
     if is_excluded(path):
@@ -79,14 +63,7 @@ def ingest(payload: dict, *, request) -> dict:
 
 
 def _session_for(payload, request, agent, width, height) -> Session:
-    """
-    The visit this batch belongs to.
-
-    The browser sends back the id it was given. If it is unknown or stale,
-    a new visit starts: a session that has been idle longer than the
-    timeout is a different visit even from the same browser.
-    """
-    from .utils import is_bot, visitor_key
+    from .utils import visitor_key
 
     given = payload.get("session")
     cutoff = timezone.now() - timedelta(minutes=get_setting("SESSION_TIMEOUT_MINUTES"))
@@ -94,11 +71,6 @@ def _session_for(payload, request, agent, width, height) -> Session:
         found = Session.objects.filter(pk=given, last_seen_at__gte=cutoff).first()
         if found:
             fresh = {"last_seen_at": timezone.now()}
-            # Somebody who browsed as a guest and then signed in keeps the
-            # same session. Without this the visit stays anonymous for its
-            # whole length, and the most interesting recordings, the ones
-            # that end in a sign up or a purchase, are the ones you cannot
-            # put a name to.
             user = getattr(request, "user", None)
             if found.user_id is None and getattr(user, "is_authenticated", False):
                 fresh["user"] = user
@@ -140,7 +112,6 @@ def _pageview_for(payload, session, page, width, height) -> PageView:
 
 
 def _write_events(view: PageView, rows: list) -> int:
-    """Rows in, rows out. One insert for the whole batch."""
     keep = []
     for row in rows:
         kind = row.get("k")
@@ -165,7 +136,6 @@ def _write_events(view: PageView, rows: list) -> int:
 
 
 def _update_counters(session, view, page, payload, written) -> None:
-    """Totals kept on the row itself, so a list page never aggregates."""
     scroll = min(max(_num(payload.get("maxScrollPct")), 0), 100)
     duration = max(_num(payload.get("durationMs")), 0)
     clicks = sum(1 for row in (payload.get("events") or []) if row.get("k") == "click")
@@ -199,13 +169,6 @@ def _update_counters(session, view, page, payload, written) -> None:
 
 
 def _rollup(view: PageView, rows: list) -> None:
-    """
-    The same events, counted into the grid.
-
-    Done at write time rather than in a nightly job: a heatmap that only
-    appears tomorrow is a heatmap nobody trusts. The cost is one upsert per
-    distinct cell in the batch, which for a normal page is a handful.
-    """
     day = timezone.localdate()
     device = view.session.device
     cells: dict[tuple, int] = {}
@@ -254,14 +217,6 @@ def _rollup(view: PageView, rows: list) -> None:
 
 
 def _rollup_scroll(view: PageView, day, device) -> None:
-    """
-    Scroll depth, counted once per page view.
-
-    Every band up to the deepest one reached is credited, because somebody
-    who got to 80 percent also saw 40 percent. The counter only moves when
-    the view reaches a band it had not reached before, so a batch arriving
-    every few seconds does not inflate it.
-    """
     view.refresh_from_db(fields=["max_scroll_pct", "scroll_band"])
     reached = view.max_scroll_pct // 5
     if reached <= view.scroll_band:

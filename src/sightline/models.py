@@ -1,20 +1,7 @@
-"""
-Storage.
+###############
+# Qiyas Sadıqov CC
+###############
 
-Four tables, each with one job:
-
-    Session   one visit, one browser, one device
-    PageView  one page inside that visit
-    Event     one thing that happened on that page
-    HeatCell  the same events, counted into a grid
-
-The split matters. Raw events answer "what did this one person do", grid
-cells answer "where does everybody click". The first question needs every
-row and is asked rarely; the second is asked on every heatmap load and must
-never scan a million rows. So events are pruned after a while and cells are
-kept, which is why a heatmap from last year still draws while its replay is
-long gone.
-"""
 from __future__ import annotations
 
 import uuid
@@ -31,14 +18,6 @@ class Device(models.TextChoices):
 
 
 class Session(models.Model):
-    """
-    One visit.
-
-    ``visitor_key`` is a salted hash that rotates daily, so returning
-    visitors look like new ones tomorrow. That is deliberate: a heatmap
-    needs counts, not identities.
-    """
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     visitor_key = models.CharField(max_length=64, db_index=True)
     user = models.ForeignKey(
@@ -60,8 +39,6 @@ class Session(models.Model):
     page_count = models.PositiveIntegerField(default=0)
     event_count = models.PositiveIntegerField(default=0)
 
-    # Set when the visitor clicked the same spot several times in a row, or
-    # clicked something that does nothing. Both are worth watching back.
     has_rage = models.BooleanField(default=False, db_index=True)
     has_dead_click = models.BooleanField(default=False)
     has_error = models.BooleanField(default=False)
@@ -82,20 +59,11 @@ class Session(models.Model):
 
     @property
     def is_interesting(self) -> bool:
-        """Worth a look: something went wrong, or the visit was a long one."""
         return self.has_rage or self.has_dead_click or self.has_error \
             or self.duration_ms > 120_000
 
 
 class Page(models.Model):
-    """
-    One recorded path.
-
-    Paths are stored once and referenced, not repeated on every event. It
-    keeps the event table narrow and makes "which pages do we have data for"
-    a single cheap query.
-    """
-
     path = models.CharField(max_length=500, unique=True)
     title = models.CharField(max_length=300, blank=True)
     first_seen_at = models.DateTimeField(default=timezone.now)
@@ -110,8 +78,6 @@ class Page(models.Model):
 
 
 class PageView(models.Model):
-    """One page inside one visit."""
-
     session = models.ForeignKey(Session, on_delete=models.CASCADE,
                                 related_name="pageviews")
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="views")
@@ -119,8 +85,6 @@ class PageView(models.Model):
     started_at = models.DateTimeField(default=timezone.now, db_index=True)
     duration_ms = models.PositiveIntegerField(default=0)
 
-    # The page as the visitor saw it. A heatmap drawn without these is a
-    # heatmap drawn over somebody else's layout.
     viewport_width = models.PositiveIntegerField(default=0)
     viewport_height = models.PositiveIntegerField(default=0)
     document_height = models.PositiveIntegerField(default=0)
@@ -128,9 +92,6 @@ class PageView(models.Model):
     max_scroll_pct = models.PositiveSmallIntegerField(default=0)
     click_count = models.PositiveIntegerField(default=0)
 
-    # The deepest scroll band already credited to the scroll map. Without
-    # it every batch would credit the same bands again and a page that
-    # sends ten batches would look ten times as read.
     scroll_band = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -142,14 +103,6 @@ class PageView(models.Model):
 
 
 class Event(models.Model):
-    """
-    One thing that happened.
-
-    Coordinates are stored twice: as pixels for the replay player, which
-    puts a cursor exactly where the pointer was, and as a fraction of the
-    document for the heatmap, which has to line up across screen widths.
-    """
-
     class Kind(models.TextChoices):
         CLICK = "click", "Click"
         MOVE = "move", "Pointer move"
@@ -189,14 +142,6 @@ class Event(models.Model):
 
 
 class HeatCell(models.Model):
-    """
-    Events counted into a grid.
-
-    One row per page, day, device, kind and cell. Drawing a heatmap then
-    reads a few hundred rows instead of a few hundred thousand, and the
-    numbers survive after the raw events are pruned.
-    """
-
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="cells")
     day = models.DateField(db_index=True)
     device = models.CharField(max_length=10, choices=Device.choices)
@@ -220,14 +165,6 @@ class HeatCell(models.Model):
 
 
 class ScrollBand(models.Model):
-    """
-    How far down the page people got.
-
-    Twenty bands of five percent each. A scroll map is not a heatmap: it
-    answers "what share of visitors ever saw this part", which is a
-    different question and needs its own counter.
-    """
-
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="bands")
     day = models.DateField(db_index=True)
     device = models.CharField(max_length=10, choices=Device.choices)
@@ -245,8 +182,6 @@ class ScrollBand(models.Model):
 
 
 class ElementStat(models.Model):
-    """Clicks per element. The list nobody wants to build by hand."""
-
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="elements")
     day = models.DateField(db_index=True)
     selector = models.CharField(max_length=300)
@@ -267,14 +202,6 @@ class ElementStat(models.Model):
 
 
 class Panel(Session):
-    """
-    A stand-in so the dashboard gets its own entry in the admin sidebar.
-
-    It stores nothing of its own. Django needs a registered model to put a
-    link in the admin index, and a proxy is the cheapest way to get one
-    without touching the host project's AdminSite.
-    """
-
     class Meta:
         proxy = True
         verbose_name = "Sightline panel"

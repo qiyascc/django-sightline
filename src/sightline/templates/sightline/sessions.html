@@ -61,12 +61,6 @@
       <tbody>
         {% for row in page %}
           <tr>
-            {% comment %}
-            A visit belongs to a person when one was signed in at any
-            point during it. When nobody was, the salted visitor key is
-            all there is, and it is shown as such rather than as a blank:
-            a blank reads as missing data, a key reads as a stranger.
-            {% endcomment %}
             <td data-label="Who">
               {% if row.user %}
                 <b>{{ row.user }}</b>

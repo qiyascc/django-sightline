@@ -1,9 +1,7 @@
-"""
-Endpoints.
+###############
+# Qiyas Sadıqov CC
+###############
 
-One is public and takes writes from the browser. The rest are staff only
-and take none: they read, and they read from rollups wherever they can.
-"""
 from __future__ import annotations
 
 import json
@@ -21,7 +19,6 @@ from .collector import ingest
 from .conf import get_setting
 from .models import (Device, ElementStat, Event, HeatCell, Page, PageView,
                      ScrollBand, Session)
-from .utils import should_record
 
 MAX_BODY = 512 * 1024
 
@@ -29,15 +26,6 @@ MAX_BODY = 512 * 1024
 @csrf_exempt
 @require_POST
 def collect(request):
-    """
-    The write endpoint.
-
-    No CSRF token: the tracker fires from ``sendBeacon`` during page unload,
-    where a token round trip is not available and the request carries no
-    credentials worth protecting. Nothing here reads or changes anything
-    belonging to a signed in user, so there is nothing for a forged request
-    to steal. The guards that matter are size and shape, below.
-    """
     if int(request.META.get("CONTENT_LENGTH") or 0) > MAX_BODY:
         return JsonResponse({"ok": False, "reason": "too_large"}, status=413)
     try:
@@ -49,17 +37,12 @@ def collect(request):
 
     try:
         result = ingest(payload, request=request)
-    except Exception:                                # noqa: BLE001
-        # A recorder that breaks the site it records is worse than no
-        # recorder. The failure is logged by Django and the page moves on.
+    except Exception:
         return JsonResponse({"ok": False, "reason": "error"}, status=200)
     return JsonResponse(result)
 
 
-# ---------------------------------------------------------------- reports
-
 def _range(request):
-    """Days requested, capped so nobody asks for a decade by accident."""
     try:
         days = int(request.GET.get("days", 30))
     except ValueError:
@@ -70,7 +53,6 @@ def _range(request):
 
 
 def _page_from(request):
-    """The page being asked about, by id or by path. None when unknown."""
     given = request.GET.get("page")
     if given:
         return Page.objects.filter(pk=given).first()
@@ -88,16 +70,6 @@ def _device(request) -> str:
 @staff_member_required
 @require_GET
 def heat_data(request):
-    """
-    The numbers behind one heatmap.
-
-    Cells come back as flat triples so the payload stays small: a page with
-    a busy grid is a few thousand numbers, not a few thousand objects.
-    """
-    # A page can be asked for by id or by path. The path form matters
-    # because the overlay has to open on pages that have no recorded data
-    # yet: seeing an empty map is an answer too, and it is the only way to
-    # check a page before it has traffic.
     page = _page_from(request)
     if page is None:
         return JsonResponse({
@@ -157,13 +129,6 @@ def heat_data(request):
 @staff_member_required
 @require_GET
 def replay_data(request, session_id):
-    """
-    One visit, ready to play back.
-
-    Events are grouped by page view because a replay is a sequence of
-    pages, not one long stream: the player reloads the page frame between
-    them.
-    """
     session = get_object_or_404(Session, pk=session_id)
     views = (PageView.objects.filter(session=session)
              .select_related("page").order_by("started_at"))
@@ -200,7 +165,6 @@ def replay_data(request, session_id):
 @staff_member_required
 @require_GET
 def dashboard(request):
-    """Pages, sessions and the two entry points into the visual tools."""
     start, end, days = _range(request)
     device = _device(request)
 
@@ -250,19 +214,6 @@ def dashboard(request):
 @staff_member_required
 @require_GET
 def sessions(request):
-    """
-    Every recorded visit, not just the last few.
-
-    The dashboard shows a short list inside the chosen date range, which
-    is the right thing for a glance. It is the wrong thing when you are
-    looking for one particular visit: the range hides anything older and
-    the cut hides anything past the fortieth row, so visits look deleted
-    when they are all still there.
-
-    This page has no date range at all by default and pages through the
-    lot. Filters narrow it down: by person, by device, by what went
-    wrong.
-    """
     from django.core.paginator import Paginator
 
     rows = Session.objects.select_related("user").order_by("-started_at")
@@ -308,7 +259,6 @@ def sessions(request):
 @staff_member_required
 @require_GET
 def replay(request, session_id):
-    """The player page. All the work happens in the browser."""
     session = get_object_or_404(Session, pk=session_id)
     first = PageView.objects.filter(session=session).order_by("started_at").first()
     if first is None:
@@ -322,11 +272,5 @@ def replay(request, session_id):
 
 
 def _admin_context(request) -> dict:
-    """
-    Admin chrome around our own pages.
-
-    The dashboard lives inside the admin so it inherits the host project's
-    theme, whether that is stock Django or something like Unfold.
-    """
     from django.contrib import admin
     return admin.site.each_context(request)

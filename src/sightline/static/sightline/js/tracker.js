@@ -1,31 +1,12 @@
-/*
- * Sightline collector.
- *
- * Runs on the visitor's page. Three rules keep it out of the way:
- *
- *   1. It never blocks. Everything happens on passive listeners and the
- *      network only sees a request every few seconds, or once on unload.
- *   2. It never reads content. Typing is recorded as "somebody typed
- *      here", never as what was typed.
- *   3. It never throws into the page. Every entry point is wrapped, so a
- *      bug here cannot break the site it is watching.
- */
 (function (window, document) {
   "use strict";
 
   var config = window.__sightline || {};
   if (!config.collect) { return; }
 
-  // Only the top window records. A page that embeds part of itself in an
-  // iframe (a chat panel, a preview, a widget) would otherwise record the
-  // frame as a separate visit, and the path it reports is whatever the
-  // frame's own URL happens to be: "srcdoc", "about:blank", a fragment.
-  // None of those are pages anybody can open, and they crowd out the real
-  // ones in every report.
   try {
     if (window.top !== window.self) { return; }
   } catch (e) {
-    // Cross origin parent. Same conclusion: not the top window.
     return;
   }
 
@@ -34,10 +15,6 @@
   var FLUSH_MS = 5000;
   var MAX_QUEUE = 400;
 
-  // ---------------------------------------------------------------- sampling
-  // The decision is made once and remembered, so a visitor is either
-  // recorded for the whole visit or not at all. Sampling per page would
-  // give half a session, which is worse than none.
   function sampled() {
     try {
       var stored = sessionStorage.getItem(STORE_SAMPLE);
@@ -51,7 +28,6 @@
   }
   if (!sampled()) { return; }
 
-  // ---------------------------------------------------------------- state
   var started = Date.now();
   var queue = [];
   var sessionId = null;
@@ -77,10 +53,6 @@
     return Math.max(e ? e.clientWidth : 0, window.innerWidth || 0, 1);
   }
 
-  // ---------------------------------------------------------------- selectors
-  // A short, stable path to an element. Ids win, then data-sightline, then
-  // a class, then the tag with its position. Long CSS paths are avoided on
-  // purpose: they change with every redesign and stop matching.
   function selectorFor(node) {
     if (!node || node === document || node === document.body) { return "body"; }
     if (node.id) { return "#" + node.id; }
@@ -123,7 +95,6 @@
     return text.replace(/\s+/g, " ").slice(0, 160);
   }
 
-  // ---------------------------------------------------------------- queue
   function push(kind, extra) {
     if (queue.length >= MAX_QUEUE) { return; }
     var row = { k: kind, t: now() };
@@ -150,7 +121,6 @@
     };
   }
 
-  // ---------------------------------------------------------------- sending
   function body(final) {
     return JSON.stringify({
       session: sessionId,
@@ -174,8 +144,6 @@
     var payload = body(final);
     firstBatch = false;
 
-    // On unload only sendBeacon survives. Everywhere else fetch is used so
-    // the answer can be read: it carries the ids the next batch needs.
     if (final && navigator.sendBeacon) {
       try {
         navigator.sendBeacon(config.collect, new Blob([payload], { type: "text/plain" }));
@@ -199,7 +167,6 @@
     } catch (e) {}
   }
 
-  // ---------------------------------------------------------------- listeners
   function guard(fn) {
     return function (event) {
       try { fn(event); } catch (e) {}
@@ -211,8 +178,6 @@
     var spot = point(event);
     var kind = "click";
 
-    // Several clicks in the same place within a short window is somebody
-    // hitting a thing that is not responding.
     var when = Date.now();
     recentClicks.push({ x: spot.x, y: spot.y, at: when });
     recentClicks = recentClicks.filter(function (c) {
@@ -227,9 +192,6 @@
       recentClicks = [];
     }
 
-    // A click on nothing interactive, on a page that then does not change,
-    // is worth knowing about. The cheap test is whether the target sits
-    // inside anything clickable at all.
     if (kind === "click" && node.closest) {
       var live = node.closest("a,button,input,select,textarea,label,summary,[role=button],[onclick]");
       if (!live) { kind = "dead"; }
@@ -258,7 +220,6 @@
   }), { passive: true });
 
   document.addEventListener("input", guard(function (event) {
-    // The fact of typing, never the text.
     push("input", { sel: selectorFor(event.target) });
   }), true);
 
@@ -270,16 +231,6 @@
     push("error", { lbl: String(event.message || "").slice(0, 160) });
   }));
 
-  // ---------------------------------------------------------------- overlays
-  // A popup is a page in the only way that matters: the visitor is looking
-  // at it. It has no URL, so nothing else in the recorder notices it, and
-  // a replay without it shows somebody clicking on a page that was covered
-  // at the time.
-  //
-  // Checked on a timer rather than through a mutation filter. An overlay
-  // can be opened by a native dialog call, an attribute, a class or a
-  // style, and one cheap loop catches all four where a filter would miss
-  // three.
   var overlayState = {};
 
   function visible(node) {
@@ -293,9 +244,6 @@
   }
 
   function overlayName(node) {
-    // A popup whose content arrives later, a chat panel for instance, has
-    // no text at the moment it opens. Its own label is a better name than
-    // an empty string, and far better than a CSS selector.
     var named = node.getAttribute("aria-label")
       || node.getAttribute("data-title")
       || node.getAttribute("title")
@@ -322,9 +270,6 @@
       seen[key] = true;
       var now = visible(node);
 
-      // First sighting. A closed overlay is the normal state of the page
-      // and saying so would put a "closed" row at the top of every visit;
-      // one that is already open when the page loads is worth recording.
       if (overlayState[key] === undefined) {
         overlayState[key] = now;
         if (!now) { continue; }
@@ -339,7 +284,6 @@
       });
       if (now) { flush(false); }
     }
-    // An overlay removed from the page counts as closed.
     for (var known in overlayState) {
       if (overlayState[known] && !seen[known]) {
         overlayState[known] = false;
@@ -350,7 +294,6 @@
 
   setInterval(guard(scanOverlays), config.overlayPollMs || 400);
 
-  // ---------------------------------------------------------------- lifecycle
   timer = setInterval(function () { flush(false); }, FLUSH_MS);
 
   document.addEventListener("visibilitychange", guard(function () {
@@ -359,11 +302,8 @@
   window.addEventListener("pagehide", guard(function () { flush(true); }));
   window.addEventListener("beforeunload", guard(function () { flush(true); }));
 
-  // First batch goes out early so the session exists before the visitor
-  // leaves. A visit that lasted four seconds is still a visit.
   setTimeout(function () { flush(false); }, 1200);
 
-  // A small door for the host project: sightline.mark("checkout-started").
   window.sightline = {
     mark: function (name, meta) {
       push("custom", { lbl: String(name || "").slice(0, 160), m: meta || {} });

@@ -1,10 +1,7 @@
-"""
-Tests.
+###############
+# Qiyas Sadıqov CC
+###############
 
-Weighted towards the things that go wrong quietly: a recorder that records
-the wrong people, a heatmap that double counts, an overlay that a visitor
-can open. A broken chart is obvious. A wrong number is not.
-"""
 import json
 import uuid
 from datetime import timedelta
@@ -96,7 +93,6 @@ class CollectTests(TestCase):
 
     @override_settings(SIGHTLINE={"MAX_BATCH": 1})
     def test_an_oversized_batch_is_trimmed_not_rejected(self):
-        """Losing one page of events is better than losing the session."""
         self.post(batch())
         self.assertEqual(Event.objects.count(), 1)
 
@@ -146,10 +142,6 @@ class RollupTests(TestCase):
         self.assertEqual(ScrollBand.objects.count(), 10)
 
     def test_a_second_batch_does_not_credit_the_same_bands_again(self):
-        """
-        The trap this test exists for: a page sending ten batches would
-        otherwise look ten times as read as it was.
-        """
         first = self.post(batch(maxScrollPct=50)).json()
         self.post(batch(session=first["session"], pageview=first["pageview"],
                         first=False, maxScrollPct=50))
@@ -195,7 +187,6 @@ class MiddlewareTests(TestCase):
         self.assertNotIn("tracker.js", html)
 
     def test_staff_are_not_recorded(self):
-        """Your own clicks are not data. They are the loudest noise there is."""
         staff = User.objects.create_user("boss", password="x", is_staff=True)
         self.client.force_login(staff)
         html = self.client.get("/").content.decode()
@@ -351,14 +342,6 @@ class UtilTests(TestCase):
 
 
 class OpenAnyPageTests(TestCase):
-    """
-    A page with no recorded data still opens.
-
-    Checking a page before it has traffic is a normal thing to want, and an
-    empty map is an answer. Refusing with a 404 would send the person
-    looking for a bug that is not there.
-    """
-
     def setUp(self):
         self.staff = User.objects.create_user("boss6", password="x",
                                               is_staff=True, is_superuser=True)
@@ -395,20 +378,11 @@ class OpenAnyPageTests(TestCase):
         self.assertIn('id="sl-open-path"', html)
 
     def test_the_empty_state_explains_why_it_is_empty(self):
-        """
-        The most common cause of an empty panel is that the person reading
-        it is staff. Saying so on the screen saves a support round trip.
-        """
         html = self.client.get(reverse("sightline:dashboard")).content.decode()
         self.assertIn("Your own visits are not recorded", html)
         self.assertIn("IGNORE_STAFF", html)
 
     def test_the_template_has_no_leaking_comments(self):
-        """
-        Django only strips a {# #} comment when it sits on one line. A
-        multi line one is printed to the page as text, which is how this
-        exact mistake shows up in production.
-        """
         html = self.client.get(reverse("sightline:dashboard")).content.decode()
         self.assertNotIn("{#", html)
 
@@ -418,11 +392,6 @@ class OpenAnyPageTests(TestCase):
 
 
 class ReplayFrameTests(TestCase):
-    """
-    The replay frame is the part most likely to break silently, because it
-    depends on how the host project sends its headers.
-    """
-
     def setUp(self):
         self.staff = User.objects.create_user("boss7", password="x",
                                               is_staff=True, is_superuser=True)
@@ -436,19 +405,12 @@ class ReplayFrameTests(TestCase):
                              x=100, y=400, scroll_y=0)
 
     def test_the_frame_is_not_pointed_at_a_url(self):
-        """
-        Django sends X-Frame-Options: DENY by default, so an iframe with a
-        src would show a broken document and nothing else. The page is
-        fetched and written in instead.
-        """
         html = self.client.get(reverse("sightline:replay",
                                        args=[self.session.pk])).content.decode()
         self.assertIn('id="sl-frame"', html)
         self.assertNotIn('id="sl-frame" src=', html)
 
     def test_the_recorded_viewport_travels_with_the_data(self):
-        """A phone visit has to replay at phone width or the cursor lands
-        on the wrong elements."""
         data = self.client.get(reverse("sightline:replay_data",
                                        args=[self.session.pk])).json()
         self.assertEqual(data["views"][0]["viewport"], [390, 844])
@@ -465,12 +427,6 @@ class ReplayFrameTests(TestCase):
 
 
 class IframeTests(TestCase):
-    """
-    A page that embeds part of itself would otherwise be recorded twice,
-    and the frame reports a path nobody can open: "srcdoc", "about:blank".
-    Those crowd out the real pages in every report.
-    """
-
     def test_the_tracker_refuses_to_run_outside_the_top_window(self):
         from django.contrib.staticfiles import finders
         path = finders.find("sightline/js/tracker.js")
@@ -485,12 +441,6 @@ class IframeTests(TestCase):
 
 
 class OverlayRecordingTests(TestCase):
-    """
-    A popup is a page in the only way that matters: the visitor is looking
-    at it. It has no URL, so nothing else in the recorder notices it, and a
-    replay without it shows somebody clicking on a page that was covered.
-    """
-
     url = "/sightline/collect/"
 
     def post(self, payload):
@@ -507,7 +457,6 @@ class OverlayRecordingTests(TestCase):
         self.assertEqual(row.meta, {"state": "open"})
 
     def test_closing_is_recorded_too(self):
-        """Without the close, every replay after it shows a stuck popup."""
         self.post(batch(events=[
             {"k": "overlay", "t": 1, "sel": "#x", "m": {"state": "open"}},
             {"k": "overlay", "t": 2, "sel": "#x", "m": {"state": "close"}},
@@ -516,7 +465,6 @@ class OverlayRecordingTests(TestCase):
         self.assertEqual(states, ["open", "close"])
 
     def test_overlays_stay_out_of_the_heatmap(self):
-        """They have no position, so counting them into a grid is noise."""
         self.post(batch(events=[
             {"k": "overlay", "t": 1, "sel": "#x", "m": {"state": "open"}},
         ]))
@@ -554,11 +502,6 @@ class OverlayRecordingTests(TestCase):
         self.assertIn("showModal", source)
 
     def test_the_player_says_so_when_a_popup_is_missing(self):
-        """
-        The page is fetched as the staff member watching, so markup meant
-        only for signed out visitors is not in that copy. Silence would
-        make the replay look like nothing happened.
-        """
         from django.contrib.staticfiles import finders
         source = open(finders.find("sightline/js/replay.js"), encoding="utf-8").read()
         self.assertIn("Popup opened: ", source)
@@ -566,25 +509,12 @@ class OverlayRecordingTests(TestCase):
 
 class OverlayNoiseTests(TestCase):
     def test_a_closed_overlay_is_not_announced_on_first_sight(self):
-        """
-        Every page has closed dialogs sitting in its markup. Reporting
-        them would put a row of "closed" at the top of every single visit
-        and bury the one that actually opened.
-        """
         from django.contrib.staticfiles import finders
         source = open(finders.find("sightline/js/tracker.js"), encoding="utf-8").read()
         self.assertIn("if (!now) { continue; }", source)
 
 
 class VisitListTests(TestCase):
-    """
-    The full visit list.
-
-    The dashboard shows the last forty inside a date range, which made
-    older visits look deleted. Nothing was ever deleted; there was just
-    no page that showed them.
-    """
-
     def setUp(self):
         self.staff = User.objects.create_user(
             username="boss", password="x", is_staff=True, is_superuser=True)
@@ -628,8 +558,6 @@ class VisitListTests(TestCase):
 
 
 class SignInDuringAVisitTests(TestCase):
-    """A guest who signs in mid visit should stop being anonymous."""
-
     def test_the_session_picks_up_the_account(self):
         person = User.objects.create_user(username="late", password="x")
         first = self.client.post(
@@ -640,8 +568,6 @@ class SignInDuringAVisitTests(TestCase):
         session = Session.objects.get()
         self.assertIsNone(session.user_id)
 
-        # The browser sends the id it was given back with every batch;
-        # without it the next batch would start a separate visit.
         self.client.force_login(person)
         self.client.post(
             reverse("sightline:collect"),
@@ -654,8 +580,6 @@ class SignInDuringAVisitTests(TestCase):
 
 
 class PruneKeepsVisitsTests(TestCase):
-    """Old events go, the visits stay unless somebody asks otherwise."""
-
     def test_visits_survive_the_default_prune(self):
         old = timezone.now() - timedelta(days=400)
         session = Session.objects.create(visitor_key="k", started_at=old)

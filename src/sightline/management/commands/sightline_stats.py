@@ -1,11 +1,14 @@
-"""A quick look from the command line, for when the panel is not to hand."""
+###############
+# Qiyas Sadıqov CC
+###############
+
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Sum
 from django.utils import timezone
 
-from sightline.models import Event, HeatCell, Page, PageView, Session
+from sightline.models import Event, HeatCell, PageView, Session
 
 
 class Command(BaseCommand):

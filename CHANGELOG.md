@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+* Published on PyPI as `django-cc-sightline`. The app label, the import
+  name and the tables are unchanged.
+* Every visit is kept and listed. The panel links to a full visit list,
+  paged and filterable by person, device or signal, with a search over
+  email, visitor key and referrer.
+* A guest who signs in halfway through a visit is attributed to that
+  account from then on, so the visit is no longer anonymous.
+* The prune deletes events only. Visits stay unless `PRUNE_SESSIONS` is
+  set or `--sessions` is passed.
+* Tested on Django 4.2 to 6.1.
+
 ## 0.1.3
 
 * Popups are recorded and replayed. Anything matching a dialog selector is

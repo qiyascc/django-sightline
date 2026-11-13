@@ -1,4 +1,10 @@
-# django-sightline
+# django-cc-sightline
+
+[![PyPI](https://img.shields.io/pypi/v/django-cc-sightline?color=3775A9&logo=pypi&logoColor=white)](https://pypi.org/project/django-cc-sightline/)
+[![Downloads](https://img.shields.io/pypi/dm/django-cc-sightline?color=3775A9)](https://pypistats.org/packages/django-cc-sightline)
+[![Python](https://img.shields.io/pypi/pyversions/django-cc-sightline?logo=python&logoColor=white)](https://pypi.org/project/django-cc-sightline/)
+[![Django](https://img.shields.io/pypi/frameworkversions/django/django-cc-sightline?color=0C4B33&logo=django&logoColor=white&label=django)](https://pypi.org/project/django-cc-sightline/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Click heatmaps, scroll maps and session replay for Django, with an admin
 panel and a live overlay you open on the real site.
@@ -6,7 +12,7 @@ panel and a live overlay you open on the real site.
 No third party service, no external script, no account. Everything is
 stored in your own database and rendered by your own server.
 
-![status](https://img.shields.io/badge/status-beta-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![django](https://img.shields.io/badge/django-4.2%2B-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+Works with Django 4.2, 5.0, 5.1, 5.2, 6.0 and 6.1, Python 3.10 and up.
 
 ## What you get
 
@@ -30,14 +36,10 @@ stored in your own database and rendered by your own server.
 ## Install
 
 ```bash
-pip install django-sightline
+pip install django-cc-sightline
 ```
 
-Or from a checkout:
-
-```bash
-pip install -e /path/to/django-sightline
-```
+The package lives on PyPI: [pypi.org/project/django-cc-sightline](https://pypi.org/project/django-cc-sightline/). The wheel and the source archive are also attached to every [GitHub release](https://github.com/qiyascc/django-sightline/releases). The name `django-sightline` on PyPI belongs to an unrelated project, so this one is published as `django-cc-sightline`. Inside Django it is still the `sightline` app. More about the project on [theqiyas.cc](https://theqiyas.cc/projects/django-sightline/).
 
 Add the app, the middleware and the URLs:
 
@@ -182,7 +184,7 @@ either, for example a container showing a customer name.
 
 ## How replay works, exactly
 
-Say it plainly, because the difference matters. Sightline records
+Sightline records
 interactions, not the DOM. Playback loads the page as it exists now in an
 iframe and moves a cursor over it, scrolling as the visitor scrolled and
 marking each click.
@@ -221,7 +223,7 @@ cost.
 
 ## Requirements
 
-Python 3.10+, Django 4.2+. Any database Django supports. No JavaScript
+Python 3.10+, Django 4.2 to 6.1. Any database Django supports. No JavaScript
 build step, no Node, no external CDN.
 
 ## Development

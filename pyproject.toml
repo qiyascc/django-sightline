@@ -1,15 +1,16 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "django-sightline"
+name = "django-cc-sightline"
 version = "0.2.0"
 description = "Click heatmaps, scroll maps and session replay for Django, with an admin panel and a live overlay."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "CC", email = "qiyasturk@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Qiyas Sadıqov", email = "qiyasturk@gmail.com" }]
 keywords = ["django", "heatmap", "analytics", "session replay", "click map", "scroll map"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -18,9 +19,17 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: JavaScript",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Internet :: WWW/HTTP :: Site Management",
 ]
 dependencies = ["Django>=4.2"]
@@ -32,6 +41,8 @@ dev = ["pytest", "pytest-django", "ruff"]
 Homepage = "https://github.com/qiyascc/django-sightline"
 Source = "https://github.com/qiyascc/django-sightline"
 Issues = "https://github.com/qiyascc/django-sightline/issues"
+Changelog = "https://github.com/qiyascc/django-sightline/blob/main/CHANGELOG.md"
+Author = "https://theqiyas.cc"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

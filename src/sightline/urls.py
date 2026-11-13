@@ -1,11 +1,7 @@
-"""
-URLs.
+###############
+# Qiyas Sadıqov CC
+###############
 
-Mount them anywhere, but keep the prefix in ``EXCLUDE_PATHS`` so the
-recorder does not record itself.
-
-    path("sightline/", include("sightline.urls")),
-"""
 from django.urls import path
 
 from . import views

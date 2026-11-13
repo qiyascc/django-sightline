@@ -1,27 +1,3 @@
-/*
- * Sightline replay player.
- *
- * What it replays, said plainly: the visitor's pointer, scrolling, clicks
- * and typing markers, drawn over the page as it exists now. It is not a
- * DOM recording. Nothing about the visitor's screen contents is stored, so
- * nothing about it can be shown, and a page redesigned since the visit
- * replays against the new design.
- *
- * Two things about the frame are worth knowing.
- *
- * The page is fetched and written into the frame, not loaded by URL.
- * Django sends X-Frame-Options: DENY on every response by default, and
- * plenty of sites add it again at the proxy, so pointing an iframe at your
- * own page shows a broken document icon and nothing else. Fetching the
- * HTML and writing it in sidesteps that entirely: there is no navigation,
- * so there is no header to refuse it. Scripts are stripped on the way in,
- * which also stops the recorded page from recording the replay.
- *
- * The frame is sized to the viewport the visitor had and then scaled down
- * to fit the stage. Replaying a 390 pixel phone visit in a 900 pixel box
- * would show the desktop layout with a cursor wandering over the wrong
- * elements.
- */
 (function (window, document) {
   "use strict";
 
@@ -64,7 +40,6 @@
     if (notice) { notice.textContent = text || ""; notice.hidden = !text; }
   }
 
-  // ---------------------------------------------------------------- frame
   function fit() {
     if (!view) { return; }
     var width = view.viewport[0] || 1280;
@@ -75,14 +50,10 @@
     frame.style.width = width + "px";
     frame.style.height = height + "px";
     scaler.style.transform = "scale(" + scale + ")";
-    // The stage keeps the shape of the screen the visitor actually had.
     stage.style.height = Math.round(height * scale) + "px";
   }
 
   function dress(html, path) {
-    // A base tag so the page's own relative URLs still resolve, and no
-    // scripts: the replay only needs the page to look right, and running
-    // the site's JavaScript inside it would start a second recording.
     var cleaned = html
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
       .replace(/<script\b[^>]*\/>/gi, "");
@@ -135,11 +106,7 @@
     }
   }
 
-  // ---------------------------------------------------------------- drawing
   function place(x, y, scroll) {
-    // The frame is scrolled to where the visitor was, and the cursor is
-    // drawn at the point they were on. Both are in the recorded page's own
-    // pixels, so they only need the stage scale applied.
     try {
       var win = frame.contentWindow;
       if (win) { win.scrollTo(0, scroll); }
@@ -158,15 +125,6 @@
     setTimeout(function () { dot.remove(); }, 900);
   }
 
-  // ---------------------------------------------------------------- overlays
-  // The page is fetched fresh, so every popup in it starts closed. When
-  // the recording says one was open, it is opened here too.
-  //
-  // It can be missing entirely: the page is fetched as the staff member
-  // watching, and markup rendered only for signed out visitors, a login
-  // prompt for instance, is simply not in that copy. Saying so on screen
-  // is better than replaying a page that looks untouched while the
-  // visitor was staring at a dialog.
   function overlay(row) {
     var selector = row[5], label = row[6];
     var state = (row[7] && row[7].state) || "open";
@@ -197,17 +155,9 @@
     }
   }
 
-  // Everything the player forced open, so it can be put back.
   var forced = [];
 
   function show(node, doc) {
-    // The site's own way of opening this thing is not knowable from a
-    // selector. The recording says the pane was on screen; whether that
-    // was a class on it, an attribute on its grandparent or a native
-    // dialog call is the site's business. So visibility is forced
-    // directly, and only the properties that are actually hiding it are
-    // touched: overriding display on a flex container would rearrange the
-    // very thing we are trying to look at.
     var win = doc.defaultView || window;
     var chain = [];
     var walk = node;
@@ -280,19 +230,13 @@
     }
   }
 
-  // ---------------------------------------------------------------- playback
   function seek(to) {
-    // Replayed from the start of the page so the scroll offset and cursor
-    // land where they belong. Stepping backwards otherwise leaves the
-    // frame scrolled wherever it happened to be.
     elapsed = to;
     cursorAt = 0;
     restore();
     flag("");
     var lastRow = null;
     while (cursorAt < events.length && events[cursorAt][1] <= elapsed) {
-      // Overlays are replayed on the way, so a popup that was open at the
-      // moment being seeked to is open again.
       if (events[cursorAt][0] === "overlay") { overlay(events[cursorAt]); }
       else { lastRow = events[cursorAt]; }
       cursorAt++;

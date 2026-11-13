@@ -1,3 +1,7 @@
+###############
+# Qiyas Sadıqov CC
+###############
+
 import django
 import os
 

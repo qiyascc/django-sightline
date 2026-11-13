@@ -1,4 +1,6 @@
-"""Minimal project used to run the package's own tests."""
+###############
+# Qiyas Sadıqov CC
+###############
 
 SECRET_KEY = "sightline-tests"
 DEBUG = False

@@ -1,4 +1,7 @@
-"""URLs for the test project. A plain page plus the package."""
+###############
+# Qiyas Sadıqov CC
+###############
+
 from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path

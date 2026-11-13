@@ -10,11 +10,6 @@
   <div class="sl-player">
     <div>
       <div class="sl-stage" id="sl-stage">
-        {% comment %}
-        The frame is filled by fetching the page and writing it in, not by
-        pointing it at a URL. Django sends X-Frame-Options: DENY by default,
-        which would show a broken document icon and nothing else.
-        {% endcomment %}
         <div class="sl-scaler" id="sl-scaler">
           <iframe id="sl-frame" title="Replay" sandbox="allow-same-origin"></iframe>
           <div class="sl-ripple" id="sl-ripple"></div>

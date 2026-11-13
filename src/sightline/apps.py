@@ -1,3 +1,7 @@
+###############
+# Qiyas Sadıqov CC
+###############
+
 from django.apps import AppConfig
 
 
