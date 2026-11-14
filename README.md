@@ -5,6 +5,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/django-cc-sightline?logo=python&logoColor=white)](https://pypi.org/project/django-cc-sightline/)
 [![Django](https://img.shields.io/pypi/frameworkversions/django/django-cc-sightline?color=0C4B33&logo=django&logoColor=white&label=django)](https://pypi.org/project/django-cc-sightline/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Docs](https://readthedocs.org/projects/django-cc-sightline/badge/?version=latest)](https://django-cc-sightline.readthedocs.io/en/latest/)
 
 Click heatmaps, scroll maps and session replay for Django, with an admin
 panel and a live overlay you open on the real site.
@@ -39,7 +40,7 @@ Works with Django 4.2, 5.0, 5.1, 5.2, 6.0 and 6.1, Python 3.10 and up.
 pip install django-cc-sightline
 ```
 
-The package lives on PyPI: [pypi.org/project/django-cc-sightline](https://pypi.org/project/django-cc-sightline/). The wheel and the source archive are also attached to every [GitHub release](https://github.com/qiyascc/django-sightline/releases). The name `django-sightline` on PyPI belongs to an unrelated project, so this one is published as `django-cc-sightline`. Inside Django it is still the `sightline` app. More about the project on [theqiyas.cc](https://theqiyas.cc/projects/django-sightline/).
+The package lives on PyPI: [pypi.org/project/django-cc-sightline](https://pypi.org/project/django-cc-sightline/). The wheel and the source archive are also attached to every [GitHub release](https://github.com/qiyascc/django-sightline/releases). The name `django-sightline` on PyPI belongs to an unrelated project, so this one is published as `django-cc-sightline`. Inside Django it is still the `sightline` app. The full documentation, with step by step guides, recipes and a settings reference, is at [django-cc-sightline.readthedocs.io](https://django-cc-sightline.readthedocs.io/). More about the project on [theqiyas.cc](https://theqiyas.cc/projects/django-sightline/).
 
 Add the app, the middleware and the URLs:
 

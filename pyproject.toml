@@ -40,6 +40,7 @@ dev = ["pytest", "pytest-django", "ruff"]
 [project.urls]
 Homepage = "https://github.com/qiyascc/django-sightline"
 Source = "https://github.com/qiyascc/django-sightline"
+Documentation = "https://django-cc-sightline.readthedocs.io/"
 Issues = "https://github.com/qiyascc/django-sightline/issues"
 Changelog = "https://github.com/qiyascc/django-sightline/blob/main/CHANGELOG.md"
 Author = "https://theqiyas.cc"
