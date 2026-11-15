@@ -7,6 +7,7 @@ import uuid
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -220,8 +221,11 @@ class OverlayTests(TestCase):
         html = self.client.get("/shop/?sightline=overlay").content.decode()
         self.assertNotIn("overlay.js", html)
 
-    def test_staff_can(self):
+    def test_staff_with_the_permission_can(self):
         staff = User.objects.create_user("boss3", password="x", is_staff=True)
+        staff.user_permissions.add(
+            Permission.objects.get(codename="view_session",
+                                   content_type__app_label="sightline"))
         self.client.force_login(staff)
         html = self.client.get(
             f"/shop/?sightline=overlay&sl_page={self.page.pk}").content.decode()

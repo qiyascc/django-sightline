@@ -11,7 +11,7 @@
 | `sightline:replay` | `/sightline/panel/replay/<uuid>/` | GET | Staff |
 | `sightline:replay_data` | `/sightline/panel/replay/<uuid>/data/` | GET | Staff |
 
-"Staff" means an active user with `is_staff`, checked with Django's `staff_member_required`. Anybody else is redirected to the admin login page.
+"Staff" means an active user with `is_staff` who also holds the permission in `PERMISSION` (`sightline.view_session` by default; superusers always do). Anybody who is not staff is redirected to the admin login page; staff without the permission get 403.
 
 ## collect
 
@@ -82,6 +82,10 @@ Missing fields default to zero or empty.
 | --- | --- | --- |
 | Stored | 200 | `{"ok": true, "session": "<uuid>", "pageview": 412, "written": 3}` |
 | Path excluded | 200 | `{"ok": false, "reason": "excluded"}` |
+| Path not served by the URLconf (`RESOLVE_PATHS`) | 200 | `{"ok": false, "reason": "unknown_path"}` |
+| Visit reached `MAX_EVENTS_PER_SESSION` | 200 | `{"ok": false, "reason": "session_full", "session": "..."}` |
+| Path is not a plain site path | 400 | `{"ok": false, "reason": "bad_path"}` |
+| Too many batches or new visits from one address | 429 | `{"ok": false, "reason": "throttled"}` |
 | Unexpected error while storing | 200 | `{"ok": false, "reason": "error"}` |
 | Not JSON | 400 | `{"ok": false, "reason": "bad_json"}` |
 | JSON but not an object | 400 | `{"ok": false, "reason": "bad_shape"}` |

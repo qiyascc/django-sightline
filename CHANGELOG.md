@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0
+
+Security release. Upgrading changes two defaults; read the last two points.
+
+* Fixed stored XSS in the replay player. A path sent to the public collect
+  endpoint was written into the step list as HTML. The list is now built
+  with DOM nodes and text.
+* Paths are validated at ingest. Only plain site paths are accepted (one
+  leading slash, no backslash, no markup); anything else gets a 400. The
+  player only fetches same site paths, and the heatmap links in the panel
+  and the admin are only rendered for safe paths.
+* The overlay and tracker config is escaped for inline scripts, so a
+  crafted `sl_path` link can no longer break out of the script tag.
+* The collect endpoint is throttled per address: `THROTTLE_BATCHES`
+  (600 per `THROTTLE_BATCHES_SECONDS`, 600) and `THROTTLE_SESSIONS`
+  (60 new visits per `THROTTLE_SESSIONS_SECONDS`, 3600), answering 429,
+  counted in the cache named by `THROTTLE_CACHE`.
+* `MAX_EVENTS_PER_SESSION` (5000) caps a visit, `MAX_META_BYTES` (1024)
+  caps the event `meta` JSON, and with `RESOLVE_PATHS` (on) only paths
+  that the URLconf serves create pages.
+* A stored page title is no longer overwritten by later batches.
+* `sightline_prune` also deletes heatmap rollups older than
+  `ROLLUP_RETAIN_DAYS` (365, `0` keeps them) and pages left with no visit
+  and no rollup. New `--rollup-days` option.
+* **Default changed:** the panel, replays, heat data and overlay need the
+  permission in `PERMISSION`, `sightline.view_session` by default, on top
+  of staff status. Superusers pass. Grant it to your viewers or set
+  `"PERMISSION": None` for the old behaviour.
+* **Default changed:** the client address no longer trusts the first
+  `X-Forwarded-For` entry, which the client controls. `IP_SOURCE` defaults
+  to `"remote_addr"`; behind a proxy set `"x-real-ip"` or `"xff-last"`,
+  or every visitor shares one throttle bucket and visitor keys collapse.
+* No migration.
+
 ## 0.2.0
 
 * Published on PyPI as `django-cc-sightline`. The app label, the import

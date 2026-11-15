@@ -8,7 +8,7 @@ The overlay draws the heatmap on top of your real site, in your own browser, wit
 
 ## Who can open it
 
-Only active staff. The overlay is triggered by the query parameter `sightline=overlay`. When the middleware sees it on a request from a signed in user with `is_staff` and `is_active`, it injects the overlay **instead of** the tracker, so looking at the heatmap never records a visit. For anybody else the parameter is ignored and the page behaves as usual.
+Only active staff. The overlay is triggered by the query parameter `sightline=overlay`. When the middleware sees it on a request from a signed in user with `is_staff` and `is_active` who also holds the `PERMISSION` permission (`sightline.view_session` by default), it injects the overlay **instead of** the tracker, so looking at the heatmap never records a visit. For anybody else the parameter is ignored and the page behaves as usual.
 
 ## Ways to open it
 

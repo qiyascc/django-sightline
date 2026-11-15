@@ -77,7 +77,7 @@ poetry add django-cc-sightline
 :::{tab-item} requirements.txt
 
 ```text
-django-cc-sightline>=0.2,<0.3
+django-cc-sightline>=0.3,<0.4
 ```
 
 Then run `pip install -r requirements.txt`.

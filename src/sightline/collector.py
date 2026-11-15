@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import timedelta
 
@@ -14,11 +15,16 @@ from django.utils import timezone
 from .conf import get_setting
 from .models import (ElementStat, Event, HeatCell, Page, PageView,
                      ScrollBand, Session)
-from .utils import bucket, clean_path, device_of, is_excluded
+from .utils import (bucket, clean_path, client_ip, device_of, is_excluded,
+                    is_safe_path, resolves, throttle)
 
 log = logging.getLogger("sightline")
 
 KINDS = {choice[0] for choice in Event.Kind.choices}
+
+
+class Throttled(Exception):
+    """Too many new visits from one address."""
 
 
 def _num(value, default=0):
@@ -26,6 +32,10 @@ def _num(value, default=0):
         return int(float(value))
     except (TypeError, ValueError):
         return default
+
+
+def _text(value, size: int) -> str:
+    return value[:size] if isinstance(value, str) else ""
 
 
 def _pct(value):
@@ -39,23 +49,37 @@ def _pct(value):
 @transaction.atomic
 def ingest(payload: dict, *, request) -> dict:
     url = payload.get("url") or "/"
-    path = clean_path(url)
+    path = clean_path(url if isinstance(url, str) else "")
+    if not is_safe_path(path):
+        return {"ok": False, "reason": "bad_path", "status": 400}
     if is_excluded(path):
         return {"ok": False, "reason": "excluded"}
+    if get_setting("RESOLVE_PATHS") and not resolves(path):
+        return {"ok": False, "reason": "unknown_path"}
 
     width = _num(payload.get("viewportWidth"))
     height = _num(payload.get("viewportHeight"))
     agent = request.META.get("HTTP_USER_AGENT", "")[:300]
 
     session = _session_for(payload, request, agent, width, height)
-    page = _page_for(path, payload.get("title") or "")
+    room = get_setting("MAX_EVENTS_PER_SESSION")
+    if room and session.event_count >= room:
+        return {"ok": False, "reason": "session_full", "session": str(session.pk)}
+
+    title = payload.get("title")
+    page = _page_for(path, title if isinstance(title, str) else "")
     view = _pageview_for(payload, session, page, width, height)
 
-    events = payload.get("events") or []
-    events = events[: get_setting("MAX_BATCH")]
+    events = payload.get("events")
+    events = [row for row in events if isinstance(row, dict)] \
+        if isinstance(events, list) else []
+    limit = get_setting("MAX_BATCH")
+    if room:
+        limit = min(limit, max(room - session.event_count, 0))
+    events = events[:limit]
     written = _write_events(view, events)
 
-    _update_counters(session, view, page, payload, written)
+    _update_counters(session, view, page, payload, events, written)
     _rollup(view, events)
 
     return {"ok": True, "session": str(session.pk), "pageview": view.pk,
@@ -77,6 +101,11 @@ def _session_for(payload, request, agent, width, height) -> Session:
             Session.objects.filter(pk=found.pk).update(**fresh)
             return found
 
+    if not throttle("sessions", client_ip(request),
+                    get_setting("THROTTLE_SESSIONS"),
+                    get_setting("THROTTLE_SESSIONS_SECONDS")):
+        raise Throttled()
+
     user = getattr(request, "user", None)
     return Session.objects.create(
         visitor_key=visitor_key(request),
@@ -86,16 +115,30 @@ def _session_for(payload, request, agent, width, height) -> Session:
         viewport_height=height,
         user_agent=agent,
         language=(request.META.get("HTTP_ACCEPT_LANGUAGE", "") or "")[:12],
-        referrer=(payload.get("referrer") or "")[:500],
+        referrer=_text(payload.get("referrer"), 500),
     )
 
 
 def _page_for(path: str, title: str) -> Page:
-    page, created = Page.objects.get_or_create(
-        path=path, defaults={"title": title[:300]})
-    if not created and title and page.title != title[:300]:
-        Page.objects.filter(pk=page.pk).update(title=title[:300])
+    title = title.strip()[:300]
+    page, created = Page.objects.get_or_create(path=path, defaults={"title": title})
+    if not created and title and not page.title:
+        Page.objects.filter(pk=page.pk, title="").update(title=title)
     return page
+
+
+def _meta(value) -> dict:
+    """Keep a small JSON object, drop anything bigger than MAX_META_BYTES."""
+    if not isinstance(value, dict) or not value:
+        return {}
+    try:
+        size = len(json.dumps(value, separators=(",", ":")).encode("utf-8"))
+    except (TypeError, ValueError):
+        return {}
+    cap = get_setting("MAX_META_BYTES")
+    if cap and size > cap:
+        return {}
+    return value
 
 
 def _pageview_for(payload, session, page, width, height) -> PageView:
@@ -126,19 +169,19 @@ def _write_events(view: PageView, rows: list) -> int:
             x_pct=_pct(row.get("xp")),
             y_pct=_pct(row.get("yp")),
             scroll_y=_num(row.get("s")),
-            selector=(row.get("sel") or "")[:300],
-            label=(row.get("lbl") or "")[:160],
-            meta=row.get("m") if isinstance(row.get("m"), dict) else {},
+            selector=_text(row.get("sel"), 300),
+            label=_text(row.get("lbl"), 160),
+            meta=_meta(row.get("m")),
         ))
     if keep:
         Event.objects.bulk_create(keep, batch_size=500)
     return len(keep)
 
 
-def _update_counters(session, view, page, payload, written) -> None:
+def _update_counters(session, view, page, payload, events, written) -> None:
     scroll = min(max(_num(payload.get("maxScrollPct")), 0), 100)
     duration = max(_num(payload.get("durationMs")), 0)
-    clicks = sum(1 for row in (payload.get("events") or []) if row.get("k") == "click")
+    clicks = sum(1 for row in events if row.get("k") == "click")
 
     PageView.objects.filter(pk=view.pk).update(
         duration_ms=max(view.duration_ms, duration),
@@ -148,7 +191,7 @@ def _update_counters(session, view, page, payload, written) -> None:
     )
 
     flags = {}
-    kinds = {row.get("k") for row in (payload.get("events") or [])}
+    kinds = {row.get("k") for row in events}
     if "rage" in kinds:
         flags["has_rage"] = True
     if "dead" in kinds:
@@ -181,10 +224,10 @@ def _rollup(view: PageView, rows: list) -> None:
         col, cell_row = bucket(_pct(row.get("xp")), _pct(row.get("yp")))
         cells[(kind, col, cell_row)] = cells.get((kind, col, cell_row), 0) + 1
 
-        selector = (row.get("sel") or "")[:300]
+        selector = _text(row.get("sel"), 300)
         if kind in {"click", "rage", "dead"} and selector:
             slot = elements.setdefault(selector, {
-                "label": (row.get("lbl") or "")[:160],
+                "label": _text(row.get("lbl"), 160),
                 "clicks": 0, "rage_clicks": 0, "dead_clicks": 0,
             })
             if kind == "click":

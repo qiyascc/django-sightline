@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from functools import wraps
 
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -15,18 +17,45 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from .collector import ingest
+from .collector import Throttled, ingest
 from .conf import get_setting
 from .models import (Device, ElementStat, Event, HeatCell, Page, PageView,
                      ScrollBand, Session)
+from .utils import can_view_panel, client_ip, overlay_link, throttle
 
 MAX_BODY = 512 * 1024
+
+
+def panel_view(view):
+    """Staff only, and only staff holding SIGHTLINE["PERMISSION"].
+
+    Visitors are sent to the admin login; staff without the permission
+    get a 403.
+    """
+    @wraps(view)
+    def guarded(request, *args, **kwargs):
+        if not can_view_panel(request.user):
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+    return staff_member_required(guarded)
+
+
+def _too_many():
+    return JsonResponse({"ok": False, "reason": "throttled"}, status=429)
 
 
 @csrf_exempt
 @require_POST
 def collect(request):
-    if int(request.META.get("CONTENT_LENGTH") or 0) > MAX_BODY:
+    if not throttle("batches", client_ip(request),
+                    get_setting("THROTTLE_BATCHES"),
+                    get_setting("THROTTLE_BATCHES_SECONDS")):
+        return _too_many()
+    try:
+        length = int(request.META.get("CONTENT_LENGTH") or 0)
+    except ValueError:
+        length = 0
+    if length > MAX_BODY:
         return JsonResponse({"ok": False, "reason": "too_large"}, status=413)
     try:
         payload = json.loads(request.body.decode("utf-8", "ignore") or "{}")
@@ -37,9 +66,12 @@ def collect(request):
 
     try:
         result = ingest(payload, request=request)
+    except Throttled:
+        return _too_many()
     except Exception:
         return JsonResponse({"ok": False, "reason": "error"}, status=200)
-    return JsonResponse(result)
+    status = result.pop("status", 200)
+    return JsonResponse(result, status=status)
 
 
 def _range(request):
@@ -67,7 +99,7 @@ def _device(request) -> str:
     return value if value in dict(Device.choices) else ""
 
 
-@staff_member_required
+@panel_view
 @require_GET
 def heat_data(request):
     page = _page_from(request)
@@ -126,7 +158,7 @@ def heat_data(request):
     })
 
 
-@staff_member_required
+@panel_view
 @require_GET
 def replay_data(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
@@ -162,7 +194,7 @@ def replay_data(request, session_id):
     })
 
 
-@staff_member_required
+@panel_view
 @require_GET
 def dashboard(request):
     start, end, days = _range(request)
@@ -179,6 +211,8 @@ def dashboard(request):
     pages = [{
         "id": row["page__id"],
         "path": row["page__path"],
+        "overlay": overlay_link(row["page__path"], sl_page=row["page__id"],
+                                sl_days=days, **({"sl_device": device} if device else {})),
         "title": row["page__title"],
         "views": row["views"],
         "clicks": row["clicks"] or 0,
@@ -211,7 +245,7 @@ def dashboard(request):
     })
 
 
-@staff_member_required
+@panel_view
 @require_GET
 def sessions(request):
     from django.core.paginator import Paginator
@@ -256,7 +290,7 @@ def sessions(request):
     })
 
 
-@staff_member_required
+@panel_view
 @require_GET
 def replay(request, session_id):
     session = get_object_or_404(Session, pk=session_id)

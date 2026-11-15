@@ -46,6 +46,24 @@ DEFAULTS = {
     "OVERLAY_POLL_MS": 400,
 
     "MASK_SELECTORS": [],
+
+    "PERMISSION": "sightline.view_session",
+
+    "IP_SOURCE": "remote_addr",
+
+    "THROTTLE_CACHE": "default",
+    "THROTTLE_BATCHES": 600,
+    "THROTTLE_BATCHES_SECONDS": 600,
+    "THROTTLE_SESSIONS": 60,
+    "THROTTLE_SESSIONS_SECONDS": 3600,
+
+    "MAX_EVENTS_PER_SESSION": 5000,
+
+    "MAX_META_BYTES": 1024,
+
+    "RESOLVE_PATHS": True,
+
+    "ROLLUP_RETAIN_DAYS": 365,
 }
 
 

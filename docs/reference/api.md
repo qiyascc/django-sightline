@@ -117,5 +117,7 @@ ingest({
 | `is_bot(user_agent)` | Whether the user agent matches the bot pattern |
 | `clean_path(url)` | The path as it would be stored, honouring `KEEP_QUERY_STRING` |
 | `is_excluded(path)` | Whether the path starts with an entry of `EXCLUDE_PATHS` |
-| `client_ip(request)` | First entry of `X-Forwarded-For`, or `REMOTE_ADDR` |
+| `client_ip(request)` | The address picked by `IP_SOURCE`: `REMOTE_ADDR` by default |
+| `is_safe_path(path)` | Whether a path is a plain site path that cannot leave the site |
+| `can_view_panel(user)` | Whether the user may open the panel, replays and overlay |
 | `bucket(x_pct, y_pct)` | The `(column, row)` grid cell for a position |

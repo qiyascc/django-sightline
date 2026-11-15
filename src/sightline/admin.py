@@ -11,6 +11,7 @@ from django.utils.html import format_html
 
 from .models import (ElementStat, Event, HeatCell, Page, PageView, Panel,
                      ScrollBand, Session)
+from .utils import can_view_panel, overlay_link
 
 
 class ReadOnly(admin.ModelAdmin):
@@ -33,7 +34,7 @@ class PanelAdmin(admin.ModelAdmin):
         return False
 
     def has_view_permission(self, request, obj=None):
-        return request.user.is_active and request.user.is_staff
+        return can_view_panel(request.user)
 
     def changelist_view(self, request, extra_context=None):
         return redirect("sightline:dashboard")
@@ -47,9 +48,11 @@ class PageAdmin(ReadOnly):
 
     @admin.display(description="Heatmap")
     def heatmap(self, obj):
+        link = overlay_link(obj.path, sl_page=obj.pk)
+        if not link:
+            return "-"
         return format_html(
-            '<a class="button" target="_blank" rel="noopener" '
-            'href="{}?sightline=overlay&sl_page={}">Open</a>', obj.path, obj.pk)
+            '<a class="button" target="_blank" rel="noopener" href="{}">Open</a>', link)
 
 
 @admin.register(Session)

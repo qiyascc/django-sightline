@@ -53,23 +53,50 @@
     stage.style.height = Math.round(height * scale) + "px";
   }
 
+  function attr(text) {
+    return String(text)
+      .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function sameSite(path) {
+    if (typeof path !== "string" || path.charAt(0) !== "/") { return null; }
+    if (path.charAt(1) === "/" || path.indexOf("\\") !== -1) { return null; }
+    try {
+      var url = new URL(path, window.location.origin);
+      if (url.origin !== window.location.origin) { return null; }
+      return url.pathname + url.search;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function dress(html, path) {
     var cleaned = html
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
       .replace(/<script\b[^>]*\/>/gi, "");
-    var base = '<base href="' + path + '">';
+    var base = '<base href="' + attr(path) + '">';
     if (/<head[^>]*>/i.test(cleaned)) {
       return cleaned.replace(/<head([^>]*)>/i, "<head$1>" + base);
     }
     return base + cleaned;
   }
 
-  function loadPage(path) {
+  function loadPage(given) {
     say("");
     frame.srcdoc = "";
+    var path = sameSite(given);
+    if (!path) {
+      say("This page is not on this site, so it is not loaded. "
+          + "The pointer track below still plays.");
+      return;
+    }
     fetch(path, { credentials: "same-origin" })
       .then(function (r) {
         if (!r.ok) { throw new Error(String(r.status)); }
+        if (r.url && new URL(r.url).origin !== window.location.origin) {
+          throw new Error("left the site");
+        }
         return r.text();
       })
       .then(function (html) {
@@ -318,11 +345,23 @@
         say("This visit has no recorded pages.");
         return;
       }
-      stepList.innerHTML = payload.views.map(function (row, i) {
-        return '<button type="button" class="sl-step" data-step="' + i + '">'
-          + '<b>' + (i + 1) + '</b><span>' + row.path + '</span>'
-          + '<em>' + fmt(row.durationMs) + '</em></button>';
-      }).join("");
+      stepList.textContent = "";
+      payload.views.forEach(function (row, i) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "sl-step";
+        button.setAttribute("data-step", String(i));
+        var num = document.createElement("b");
+        num.textContent = String(i + 1);
+        var label = document.createElement("span");
+        label.textContent = String(row.path);
+        var time = document.createElement("em");
+        time.textContent = fmt(row.durationMs);
+        button.appendChild(num);
+        button.appendChild(label);
+        button.appendChild(time);
+        stepList.appendChild(button);
+      });
       loadView(0);
     })
     .catch(function () {

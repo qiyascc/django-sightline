@@ -63,10 +63,11 @@
               <td class="num" data-label="Clicks">{{ page.clicks }}</td>
               <td class="num" data-label="Avg scroll">{{ page.scroll }}%</td>
               <td class="act">
-                <a class="sl-btn" target="_blank" rel="noopener"
-                   href="{{ page.path }}?sightline=overlay&sl_page={{ page.id }}&sl_days={{ days }}{% if device %}&sl_device={{ device }}{% endif %}">
+                {% if page.overlay %}
+                <a class="sl-btn" target="_blank" rel="noopener" href="{{ page.overlay }}">
                   Open heatmap
                 </a>
+                {% endif %}
               </td>
             </tr>
           {% empty %}
@@ -159,7 +160,7 @@
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     var path = document.getElementById("sl-open-path").value.trim() || "/";
-    if (path.charAt(0) !== "/") { path = "/" + path; }
+    path = "/" + path.replace(/\\/g, "/").replace(/^\/+/, "");
     var sep = path.indexOf("?") === -1 ? "?" : "&";
     window.open(
       path + sep + "sightline=overlay&sl_path=" + encodeURIComponent(path)

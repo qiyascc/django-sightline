@@ -6,12 +6,17 @@ Most production sites sit behind a reverse proxy, many behind a CDN, and some se
 
 ### Client IP and the visitor key
 
-The visitor key is computed from the client IP, among other things. Sightline takes the IP from the **first** entry of the `X-Forwarded-For` header when it exists, and from `REMOTE_ADDR` otherwise.
+The visitor key and the collect throttle use the client IP. Where it comes from is set by `IP_SOURCE`:
 
-* **Your proxy sets `X-Forwarded-For`** (nginx with `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`, most load balancers and CDNs): visitor keys work as intended.
-* **Your proxy does not set it**: every request seems to come from the proxy's address. Keys are then based on the user agent and language alone, so different people with the same browser get the same key on the same day. Configure the header.
+| `IP_SOURCE` | Address used | When |
+| --- | --- | --- |
+| `"remote_addr"` (default) | `REMOTE_ADDR` | Django faces the internet directly |
+| `"x-real-ip"` | `X-Real-IP`, falling back to `REMOTE_ADDR` | Your proxy sets it, for example nginx `proxy_set_header X-Real-IP $remote_addr;` |
+| `"xff-last"` | Last entry of `X-Forwarded-For`, falling back to `REMOTE_ADDR` | Your proxy appends to the header (`$proxy_add_x_forwarded_for`) |
 
-A visitor can send a fake `X-Forwarded-For`. The only effect is on their own visitor key, which is a grouping aid and not a security feature, so this does not matter for Sightline.
+A value that is not an IP address falls back to `REMOTE_ADDR`. The first `X-Forwarded-For` entry is never used: the client writes it, so trusting it would let anybody pick their own throttle bucket.
+
+Behind a proxy with the default `"remote_addr"`, every request seems to come from the proxy. Visitor keys are then based on the user agent and language alone, and all visitors share one throttle bucket, so they hit the limit together. Set `IP_SOURCE` to match your proxy, and only trust a header your proxy always overwrites.
 
 ### Compression and other response middleware
 

@@ -105,12 +105,12 @@
     <nav class="sl-pager">
       {% if page.has_previous %}
         <a class="sl-btn sl-btn--ghost"
-           href="?{% if signal %}signal={{ signal }}&{% endif %}{% if device %}device={{ device }}&{% endif %}{% if query %}q={{ query }}&{% endif %}page={{ page.previous_page_number }}">Newer</a>
+           href="?{% if signal %}signal={{ signal }}&{% endif %}{% if device %}device={{ device }}&{% endif %}{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page.previous_page_number }}">Newer</a>
       {% endif %}
       <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
       {% if page.has_next %}
         <a class="sl-btn sl-btn--ghost"
-           href="?{% if signal %}signal={{ signal }}&{% endif %}{% if device %}device={{ device }}&{% endif %}{% if query %}q={{ query }}&{% endif %}page={{ page.next_page_number }}">Older</a>
+           href="?{% if signal %}signal={{ signal }}&{% endif %}{% if device %}device={{ device }}&{% endif %}{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page.next_page_number }}">Older</a>
       {% endif %}
     </nav>
   {% endif %}

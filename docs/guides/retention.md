@@ -24,6 +24,8 @@ python manage.py sightline_prune
 
 It deletes the events of every visit that started more than `RETAIN_DAYS` days ago (90 by default). Events are deleted in chunks of 5000, so a large first prune does not hold one huge transaction.
 
+It also deletes heatmap rollups (`HeatCell`, `ScrollBand`, `ElementStat`) for days older than `ROLLUP_RETAIN_DAYS`, 365 by default, and then pages that were not seen since then and have no page view and no rollup left. Set `ROLLUP_RETAIN_DAYS` to `0` to keep rollups forever.
+
 ### Options
 
 | Option | Effect |
@@ -31,6 +33,7 @@ It deletes the events of every visit that started more than `RETAIN_DAYS` days a
 | `--days N` | Use N days instead of `RETAIN_DAYS` |
 | `--dry-run` | Count what would be deleted and delete nothing |
 | `--sessions` | Also delete the old visits and their page views. Overrides `PRUNE_SESSIONS` |
+| `--rollup-days N` | Use N days instead of `ROLLUP_RETAIN_DAYS`; `0` keeps rollups |
 
 Always start with a dry run:
 

@@ -43,7 +43,7 @@ The salt is `SALT` from the settings, or your `SECRET_KEY` when `SALT` is empty.
 SIGHTLINE = {"SALT": env("SIGHTLINE_SALT")}
 ```
 
-The client IP is taken from the first entry of `X-Forwarded-For` when that header exists, otherwise from `REMOTE_ADDR`. See [Proxies, CDNs and CSP](proxies-and-csp.md).
+The client IP is `REMOTE_ADDR` by default, or a header set by your proxy when `IP_SOURCE` says so. See [Proxies, CDNs and CSP](proxies-and-csp.md).
 
 ## Defaults that protect people
 
@@ -55,7 +55,17 @@ The client IP is taken from the first entry of `X-Forwarded-For` when that heade
 
 ## Who can see the data
 
-The panel, the visit list, the replays and the heat data are open to every active staff user. Model permissions are not checked for these views. If some staff accounts should not watch replays, keep them out of `is_staff`, or put the Sightline URLs behind your own access check.
+The panel, the visit list, the replays, the heat data and the live overlay need an active staff user who also holds the permission named in `PERMISSION`, `sightline.view_session` by default. Superusers always pass. Staff without it get a 403. Grant it to a group for the people who may watch recordings:
+
+```python
+from django.contrib.auth.models import Group, Permission
+
+group, _ = Group.objects.get_or_create(name="Sightline viewers")
+group.permissions.add(Permission.objects.get(
+    codename="view_session", content_type__app_label="sightline"))
+```
+
+Set `"PERMISSION": None` to let every active staff user in, as before 0.3.0, or name any other permission such as `"myapp.watch_replays"`.
 
 The admin pages for the raw tables follow Django's normal view permissions.
 

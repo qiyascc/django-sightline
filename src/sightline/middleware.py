@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import json
-
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 
 from .conf import get_setting
-from .utils import should_record
+from .utils import can_view_panel, script_json, should_record
 
 BODY_CLOSE = b"</body>"
 
@@ -61,8 +59,7 @@ class SightlineMiddleware:
     def _overlay_wanted(self, request) -> bool:
         if request.GET.get("sightline") != "overlay":
             return False
-        user = getattr(request, "user", None)
-        return bool(getattr(user, "is_staff", False) and getattr(user, "is_active", False))
+        return can_view_panel(getattr(request, "user", None))
 
     def _overlay(self, request) -> str:
         config = {
@@ -74,7 +71,7 @@ class SightlineMiddleware:
             "device": request.GET.get("sl_device", ""),
         }
         return render_to_string("sightline/_overlay.html", {
-            "config": json.dumps(config),
+            "config": script_json(config),
         })
 
     def _snippet(self, request) -> str:
@@ -90,5 +87,5 @@ class SightlineMiddleware:
             "overlayPollMs": get_setting("OVERLAY_POLL_MS"),
         }
         return render_to_string("sightline/_tracker.html", {
-            "config": json.dumps(config),
+            "config": script_json(config),
         })

@@ -25,7 +25,7 @@ Before 0.2.0 the package was installed from GitHub, under the distribution name 
    with
 
    ```text
-   django-cc-sightline>=0.2,<0.3
+   django-cc-sightline>=0.3,<0.4
    ```
 
 4. Run the migrations and collect static files, as with any upgrade:
@@ -40,6 +40,35 @@ Nothing else in your settings, middleware or URLs needs to change.
 ```{warning}
 `pip install django-sightline` from PyPI installs an unrelated project that also uses the module name `sightline`. If you ran it by mistake, uninstall it and reinstall `django-cc-sightline`.
 ```
+
+## What changed in 0.3.0
+
+0.3.0 is a security release. There is no migration. Two defaults changed and may need action:
+
+### Viewers need a permission
+
+The panel, visit list, replays, heat data and live overlay now require the permission named in `PERMISSION`, `sightline.view_session` by default, on top of `is_staff`. Superusers are unaffected. Other staff get a 403 until you grant it, for example to a group:
+
+```python
+from django.contrib.auth.models import Group, Permission
+
+group, _ = Group.objects.get_or_create(name="Sightline viewers")
+group.permissions.add(Permission.objects.get(
+    codename="view_session", content_type__app_label="sightline"))
+```
+
+Or keep the old behaviour with `SIGHTLINE = {"PERMISSION": None}`.
+
+### The client IP no longer trusts X-Forwarded-For
+
+Before 0.3.0 the first `X-Forwarded-For` entry was used, which the visitor controls. Now `REMOTE_ADDR` is used unless `IP_SOURCE` says otherwise. Behind a reverse proxy, set `"IP_SOURCE": "x-real-ip"` or `"xff-last"` (see [Proxies, CDNs and CSP](../guides/proxies-and-csp.md)); otherwise all visitors share the proxy's address and the new collect throttle limits them together.
+
+### Other changes
+
+* The collect endpoint is throttled per address and answers 429 past the limit. See `THROTTLE_*` in the [settings reference](../reference/settings.md).
+* Paths that are not plain site paths are refused with 400, and with `RESOLVE_PATHS` paths your URLconf does not serve are ignored.
+* A stored page title is no longer overwritten by later visits.
+* `sightline_prune` also deletes heatmap rollups older than `ROLLUP_RETAIN_DAYS` (365 days).
 
 ## What changed in 0.2.0
 

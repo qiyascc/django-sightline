@@ -5,7 +5,7 @@
 Delete recorded events and, optionally, visits older than the retention window.
 
 ```bash
-python manage.py sightline_prune [--days N] [--dry-run] [--sessions]
+python manage.py sightline_prune [--days N] [--dry-run] [--sessions] [--rollup-days N]
 ```
 
 | Option | Default | Meaning |
@@ -13,6 +13,7 @@ python manage.py sightline_prune [--days N] [--dry-run] [--sessions]
 | `--days N` | `RETAIN_DAYS` (90) | Age in days. Visits that **started** before now minus N days are affected. `0` falls back to the setting |
 | `--dry-run` | off | Print what would be deleted and delete nothing |
 | `--sessions` | `PRUNE_SESSIONS` (off) | Also delete the visits and their page views, not only their events |
+| `--rollup-days N` | `ROLLUP_RETAIN_DAYS` (365) | Delete heatmap rollups older than N days and pages left empty. `0` keeps them |
 
 What it does:
 

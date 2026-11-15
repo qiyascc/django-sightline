@@ -135,11 +135,70 @@ SIGHTLINE = {
     "SALT": "",                     # defaults to SECRET_KEY
     "MASK_SELECTORS": [],           # never read text inside these
     "PRUNE_SESSIONS": False,        # the prune drops events, not visits
+    "ROLLUP_RETAIN_DAYS": 365,      # heatmap rollups pruned after this, 0 keeps them
+    "PERMISSION": "sightline.view_session",  # needed to see the panel, None for any staff
+    "IP_SOURCE": "remote_addr",     # or "x-real-ip" / "xff-last" behind a proxy
+    "THROTTLE_CACHE": "default",    # cache alias for the collect throttle
+    "THROTTLE_BATCHES": 600,        # batches per address per window, 0 is off
+    "THROTTLE_BATCHES_SECONDS": 600,
+    "THROTTLE_SESSIONS": 60,        # new visits per address per window, 0 is off
+    "THROTTLE_SESSIONS_SECONDS": 3600,
+    "MAX_EVENTS_PER_SESSION": 5000, # 0 is unlimited
+    "MAX_META_BYTES": 1024,         # bigger event meta is dropped
+    "RESOLVE_PATHS": True,          # only record paths your URLconf serves
 }
 ```
 
 Keep the mount prefix in `EXCLUDE_PATHS` so the recorder does not record
 itself.
+
+## Access and security
+
+**Who can watch.** The panel, the visit list, the replays, the heat data
+and the live overlay need an active staff account **and** the permission
+named by `PERMISSION`, `sightline.view_session` by default. Superusers
+always have it. Grant it to the people who may watch recordings, for
+example through a group:
+
+```python
+from django.contrib.auth.models import Group, Permission
+
+group, _ = Group.objects.get_or_create(name="Sightline viewers")
+group.permissions.add(Permission.objects.get(
+    codename="view_session", content_type__app_label="sightline"))
+```
+
+Staff without it get a 403. Set `"PERMISSION": None` to let every active
+staff user in, as before 0.3.0.
+
+**Client address.** The address is used for the visitor key and for the
+throttle. By default only `REMOTE_ADDR` is trusted. Behind a reverse proxy
+every visitor would then share the proxy's address, so tell Sightline
+which header your proxy sets:
+
+* `"IP_SOURCE": "x-real-ip"` when the proxy sets `X-Real-IP`
+  (nginx: `proxy_set_header X-Real-IP $remote_addr;`).
+* `"IP_SOURCE": "xff-last"` when it appends to `X-Forwarded-For`; the
+  last hop is the one your proxy wrote. The first entry is never used,
+  because the client writes it.
+
+**The collect endpoint is public**, so it is guarded:
+
+* Per address, at most `THROTTLE_BATCHES` batches per
+  `THROTTLE_BATCHES_SECONDS` and `THROTTLE_SESSIONS` new visits per
+  `THROTTLE_SESSIONS_SECONDS`. Past that it answers 429. Counters live in
+  the Django cache named by `THROTTLE_CACHE`; use a shared cache (Redis,
+  Memcached, database) when you run several processes. If the cache fails,
+  the request is let through.
+* A visit stops taking events at `MAX_EVENTS_PER_SESSION`.
+* Event `meta` larger than `MAX_META_BYTES` of JSON is dropped.
+* Paths must be plain site paths (one leading slash, no backslash, no
+  markup); anything else is refused with 400. With `RESOLVE_PATHS`, a
+  path your URLconf does not serve is ignored, so made up URLs do not
+  fill the page list. Turn it off if pages are served outside the
+  URLconf, such as flatpages from a fallback middleware.
+* A page title is stored when the page is first seen and never
+  overwritten by a later batch.
 
 ## Custom events
 
@@ -157,8 +216,13 @@ python manage.py sightline_stats --days 7   # quick summary
 ```
 
 Run the prune from cron, weekly is enough. Heatmap numbers are aggregates
-and survive pruning, so old maps still draw after their raw events are
-gone.
+and survive the event prune, so old maps still draw after their raw events
+are gone.
+
+Heatmap rollups (cells, scroll bands, element counts) older than
+`ROLLUP_RETAIN_DAYS`, 365 by default, are deleted as well, together with
+pages that have no visit and no rollup left. Set it to `0`, or pass
+`--rollup-days 0`, to keep them forever.
 
 The visits themselves are **not** deleted. Events are the bulk; a visit
 row is a few hundred bytes and it is what the panel lists, so removing it

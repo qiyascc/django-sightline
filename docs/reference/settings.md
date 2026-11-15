@@ -27,6 +27,17 @@ SIGHTLINE = {
     ],
     "OVERLAY_POLL_MS": 400,
     "MASK_SELECTORS": [],
+    "PERMISSION": "sightline.view_session",
+    "IP_SOURCE": "remote_addr",
+    "THROTTLE_CACHE": "default",
+    "THROTTLE_BATCHES": 600,
+    "THROTTLE_BATCHES_SECONDS": 600,
+    "THROTTLE_SESSIONS": 60,
+    "THROTTLE_SESSIONS_SECONDS": 3600,
+    "MAX_EVENTS_PER_SESSION": 5000,
+    "MAX_META_BYTES": 1024,
+    "RESOLVE_PATHS": True,
+    "ROLLUP_RETAIN_DAYS": 365,
 }
 ```
 
@@ -152,6 +163,56 @@ Age after which `sightline_prune` deletes raw events. Can be overridden per run 
 | `PRUNE_SESSIONS` | bool | `False` | `sightline_prune` |
 
 Whether the prune also deletes old visits and their page views. Can be overridden per run with `--sessions`. See [Retention and pruning](../guides/retention.md).
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `ROLLUP_RETAIN_DAYS` | int, days | `365` | `sightline_prune` |
+
+Age after which `sightline_prune` deletes heatmap rollups (heat cells, scroll bands, element counts) and then pages with no page view and no rollup left. `0` or `None` keeps them forever. Can be overridden per run with `--rollup-days`.
+
+## Access and abuse protection
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `PERMISSION` | str or `None` | `"sightline.view_session"` | Server |
+
+Permission a staff user needs, checked with `user.has_perm`, to open the panel, the visit list, replays, heat data and the live overlay. Superusers always pass. `None` lets every active staff user in. See [Privacy](../guides/privacy.md#who-can-see-the-data).
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `IP_SOURCE` | str | `"remote_addr"` | Server |
+
+Where the client address comes from: `"remote_addr"`, `"x-real-ip"` or `"xff-last"` (last `X-Forwarded-For` hop). Used for the visitor key and the throttle. See [Proxies, CDNs and CSP](../guides/proxies-and-csp.md).
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `THROTTLE_CACHE` | str | `"default"` | Server |
+| `THROTTLE_BATCHES` | int | `600` | Server |
+| `THROTTLE_BATCHES_SECONDS` | int | `600` | Server |
+| `THROTTLE_SESSIONS` | int | `60` | Server |
+| `THROTTLE_SESSIONS_SECONDS` | int | `3600` | Server |
+
+Per address limits on the collect endpoint: batches per window, and new visits per window. Past either limit the endpoint answers 429. `0` turns a limit off. The tracker sends at most one batch every 5 seconds per open tab, plus one on rage clicks, popups and leaving, so the default leaves room for several tabs or a small office behind one address. Counters are kept in the cache with the alias `THROTTLE_CACHE`; with several worker processes use a shared cache, because a per process memory cache counts each process separately. If the cache raises, the request is let through.
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `MAX_EVENTS_PER_SESSION` | int | `5000` | Server |
+
+Most events stored for one visit. Later batches of a full visit are answered with `session_full` and stored nowhere. `0` is unlimited.
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `MAX_META_BYTES` | int | `1024` | Server |
+
+Largest `meta` object, as compact JSON, stored on an event. A bigger one is replaced with `{}`. `0` is unlimited.
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `RESOLVE_PATHS` | bool | `True` | Server |
+
+Only record paths that `django.urls.resolve` matches (under any of `LANGUAGES` with i18n), so a script posting made up paths cannot fill the page list. Turn it off when pages are served outside the URLconf, for example flatpages from `FlatpageFallbackMiddleware`.
+
+Independently of these settings, a path must be a plain site path: one leading slash, then only letters, digits and `/_-.%~:@!$&'()*+,;=`, with no backslash. Anything else is refused with 400.
 
 ## Reading settings in your code
 
