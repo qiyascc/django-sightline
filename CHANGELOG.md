@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+* New opt-in `CAPTURE_INPUTS` (default `False`). When on, the tracker
+  records what was typed into `input`, `textarea` and `select` fields,
+  once the field settles (about 0.8 s after the last key, on change, on
+  blur, on submit and when the page is left), cut to 160 characters, with
+  the field's `name`, id, label or placeholder. Fields inside
+  `MASK_SELECTORS` still record nothing. Password fields record only their
+  length as `*` unless `CAPTURE_PASSWORDS` is also on. File inputs never
+  record a value.
+* The replay lists every typed value under its page, and fills the fields
+  in as playback passes them.
+* With `CAPTURE_INPUTS` off the collect endpoint drops any value or
+  metadata sent with an input event, so the default stays "typing only".
+
 ## 0.3.0
 
 Security release. Upgrading changes two defaults; read the last two points.

@@ -134,6 +134,8 @@ SIGHTLINE = {
     "MAX_BATCH": 500,
     "SALT": "",                     # defaults to SECRET_KEY
     "MASK_SELECTORS": [],           # never read text inside these
+    "CAPTURE_INPUTS": False,        # keep what people type into fields
+    "CAPTURE_PASSWORDS": False,     # also keep password fields (not advised)
     "PRUNE_SESSIONS": False,        # the prune drops events, not visits
     "ROLLUP_RETAIN_DAYS": 365,      # heatmap rollups pruned after this, 0 keeps them
     "PERMISSION": "sightline.view_session",  # needed to see the panel, None for any staff
@@ -237,8 +239,9 @@ The package is built so that a heatmap does not become a surveillance log.
 * **No addresses are stored.** Visitors are identified by a salted hash
   that includes the date, so the same person looks like a new visitor
   tomorrow.
-* **No text is recorded.** Typing is stored as "somebody typed in this
-  field", never as what was typed. Input values never leave the browser.
+* **No typed text by default.** Typing is stored as "somebody typed in this
+  field", never as what was typed. Turn on `CAPTURE_INPUTS` to keep the
+  values for support (passwords stay hidden unless `CAPTURE_PASSWORDS`).
 * **No screen contents are recorded.** Replay is a pointer over your
   current page, not a recording of what the visitor saw.
 * **Do Not Track is honoured** by default.

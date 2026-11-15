@@ -83,6 +83,8 @@ class SightlineMiddleware:
             "rageWindowMs": get_setting("RAGE_CLICK_WINDOW_MS"),
             "rageRadius": get_setting("RAGE_CLICK_RADIUS_PX"),
             "maskSelectors": get_setting("MASK_SELECTORS"),
+            "captureInputs": bool(get_setting("CAPTURE_INPUTS")),
+            "capturePasswords": bool(get_setting("CAPTURE_PASSWORDS")),
             "overlaySelectors": get_setting("OVERLAY_SELECTORS"),
             "overlayPollMs": get_setting("OVERLAY_POLL_MS"),
         }

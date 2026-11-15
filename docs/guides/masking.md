@@ -39,7 +39,7 @@ SIGHTLINE = {"MASK_SELECTORS": ["[data-private]"]}
 
 ## What is never stored, masked or not
 
-* The value of form fields. `input`, `textarea` and `select` elements never get a label, and typing is recorded as "somebody typed in this field" with the field's selector only.
+* The value of form fields, unless `CAPTURE_INPUTS` is on. By default `input`, `textarea` and `select` elements never get a label, and typing is recorded as "somebody typed in this field" with the field's selector only. With `CAPTURE_INPUTS` on, fields inside `MASK_SELECTORS` still record no value.
 * The page content.
 
 ## Masking text that is clicked a lot

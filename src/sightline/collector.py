@@ -156,10 +156,13 @@ def _pageview_for(payload, session, page, width, height) -> PageView:
 
 def _write_events(view: PageView, rows: list) -> int:
     keep = []
+    typed = bool(get_setting("CAPTURE_INPUTS"))
     for row in rows:
         kind = row.get("k")
         if kind not in KINDS:
             continue
+        if kind == "input" and not typed:
+            row = {key: value for key, value in row.items() if key not in ("lbl", "m")}
         keep.append(Event(
             pageview=view,
             kind=kind,

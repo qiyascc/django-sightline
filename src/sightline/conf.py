@@ -47,6 +47,10 @@ DEFAULTS = {
 
     "MASK_SELECTORS": [],
 
+    "CAPTURE_INPUTS": False,
+
+    "CAPTURE_PASSWORDS": False,
+
     "PERMISSION": "sightline.view_session",
 
     "IP_SOURCE": "remote_addr",

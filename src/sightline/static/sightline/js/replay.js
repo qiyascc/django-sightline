@@ -247,9 +247,45 @@
     box.toggleAttribute("data-quiet", !!quiet);
   }
 
+  function hasValue(row) {
+    return row[0] === "input" && typeof row[6] === "string"
+      && (row[6] !== "" || !!(row[7] && row[7].field));
+  }
+
+  function fieldOf(row) {
+    return (row[7] && row[7].field) || row[5] || "field";
+  }
+
+  function fill(row) {
+    var doc = null;
+    try { doc = frame.contentDocument; } catch (e) {}
+    if (!doc) { return; }
+    var node = null;
+    try { node = doc.querySelector(row[5]); } catch (e) {}
+    if (!node) { return; }
+    var tag = (node.tagName || "").toLowerCase();
+    var type = String(node.type || "").toLowerCase();
+    try {
+      if (type === "checkbox" || type === "radio") {
+        node.checked = row[6].indexOf("[x]") === 0;
+      } else if (tag === "select") {
+        for (var i = 0; i < node.options.length; i++) {
+          if (node.options[i].text === row[6]) { node.selectedIndex = i; break; }
+        }
+      } else if (type !== "file") {
+        node.value = row[6];
+      }
+    } catch (e) {}
+  }
+
   function apply(row) {
     var kind = row[0], x = row[2], y = row[3], scroll = row[4];
     if (kind === "overlay") { overlay(row); return; }
+    if (hasValue(row)) {
+      fill(row);
+      flag("Typed in " + fieldOf(row) + ": " + row[6], true);
+      return;
+    }
     if (kind === "move" || kind === "scroll") { place(x, y, scroll); return; }
     if (kind === "click" || kind === "rage" || kind === "dead" || kind === "input") {
       place(x, y, scroll);
@@ -265,6 +301,7 @@
     var lastRow = null;
     while (cursorAt < events.length && events[cursorAt][1] <= elapsed) {
       if (events[cursorAt][0] === "overlay") { overlay(events[cursorAt]); }
+      else if (hasValue(events[cursorAt])) { fill(events[cursorAt]); }
       else { lastRow = events[cursorAt]; }
       cursorAt++;
     }
@@ -361,6 +398,25 @@
         button.appendChild(label);
         button.appendChild(time);
         stepList.appendChild(button);
+        var entries = (row.events || []).filter(hasValue);
+        if (entries.length) {
+          var list = document.createElement("ol");
+          list.className = "sl-typed";
+          entries.forEach(function (entry) {
+            var item = document.createElement("li");
+            var when = document.createElement("em");
+            when.textContent = fmt(entry[1]);
+            var name = document.createElement("b");
+            name.textContent = fieldOf(entry);
+            var value = document.createElement("span");
+            value.textContent = entry[6] === "" ? "(empty)" : entry[6];
+            item.appendChild(when);
+            item.appendChild(name);
+            item.appendChild(value);
+            list.appendChild(item);
+          });
+          stepList.appendChild(list);
+        }
       });
       loadView(0);
     })

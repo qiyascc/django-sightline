@@ -89,7 +89,7 @@ Replay is the one place that reads raw events, because it needs every step of on
 
 ## What is never recorded
 
-* The text people type. Only the fact that they typed into a field.
+* The text people type, unless `CAPTURE_INPUTS` is on. By default only the fact that they typed into a field is kept. Password fields keep only their length unless `CAPTURE_PASSWORDS` is on too.
 * The contents of the page. Replay shows the page as it is now, not as it was. See [Session replay](session-replay.md).
 * IP addresses. The visitor key is a hash that includes the date, so it changes every day. See [Privacy](privacy.md).
 * Anything from staff accounts, visitors sending Do Not Track or known bots, with the default settings.

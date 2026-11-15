@@ -27,6 +27,8 @@ SIGHTLINE = {
     ],
     "OVERLAY_POLL_MS": 400,
     "MASK_SELECTORS": [],
+    "CAPTURE_INPUTS": False,
+    "CAPTURE_PASSWORDS": False,
     "PERMISSION": "sightline.view_session",
     "IP_SOURCE": "remote_addr",
     "THROTTLE_CACHE": "default",
@@ -118,6 +120,13 @@ A click becomes a rage click when at least `RAGE_CLICK_COUNT` clicks, itself inc
 | `MASK_SELECTORS` | list of str | `[]` | Browser |
 
 CSS selectors of areas whose text must never be stored as a click label. See [Masking](../guides/masking.md).
+
+| Key | Type | Default | Used in |
+| --- | --- | --- | --- |
+| `CAPTURE_INPUTS` | bool | `False` | Browser, collect |
+| `CAPTURE_PASSWORDS` | bool | `False` | Browser |
+
+`CAPTURE_INPUTS` keeps what visitors type into `input`, `textarea` and `select` fields, cut to 160 characters, recorded once a field settles. The replay lists the values under each page and fills the fields in during playback. Fields inside `MASK_SELECTORS` record no value, and file inputs never do. With it off, the collect endpoint drops any value sent with an input event. Password fields record only their length as `*` unless `CAPTURE_PASSWORDS` is on as well; storing passwords is not advised. Check your privacy notice before turning these on.
 
 ## Popups
 

