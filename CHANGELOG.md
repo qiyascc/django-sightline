@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+* Project and author links point to qiyas.cc, the new address of the site. No code changes.
+
 ## 0.4.0
 
 * New opt-in `CAPTURE_INPUTS` (default `False`). When on, the tracker
