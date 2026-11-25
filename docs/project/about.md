@@ -2,8 +2,8 @@
 
 django-cc-sightline is written and maintained by **Qiyas Sadıqov**.
 
-* Website: [theqiyas.cc](https://theqiyas.cc)
-* Project page: [theqiyas.cc/projects/django-sightline](https://theqiyas.cc/projects/django-sightline/)
+* Website: [qiyas.cc](https://qiyas.cc)
+* Project page: [qiyas.cc/projects/django-sightline](https://qiyas.cc/projects/django-sightline/)
 * Source code: [github.com/qiyascc/django-sightline](https://github.com/qiyascc/django-sightline)
 * Package: [pypi.org/project/django-cc-sightline](https://pypi.org/project/django-cc-sightline/)
 * Releases with the wheel and source archive: [GitHub releases](https://github.com/qiyascc/django-sightline/releases)
@@ -16,7 +16,7 @@ Heatmaps and session replay usually come from a hosted service: a third party sc
 
 * [django-cc-admin](https://django-cc-admin.readthedocs.io/): a modern skin and toolkit for the Django admin, with themes, a dashboard built from settings, live updates and a command palette.
 
-More projects are listed on [theqiyas.cc](https://theqiyas.cc).
+More projects are listed on [qiyas.cc](https://qiyas.cc).
 
 ## License
 

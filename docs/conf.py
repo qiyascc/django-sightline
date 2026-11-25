@@ -13,8 +13,8 @@ PACKAGE = "sightline"
 DIST = "django-cc-sightline"
 TITLE = "django-cc-sightline"
 REPO = "https://github.com/qiyascc/django-sightline"
-SITE = "https://theqiyas.cc"
-PROJECT_PAGE = "https://theqiyas.cc/projects/django-sightline/"
+SITE = "https://qiyas.cc"
+PROJECT_PAGE = "https://qiyas.cc/projects/django-sightline/"
 
 import django
 from django.conf import settings
@@ -117,6 +117,6 @@ html_theme_options = {
     "footer_icons": [
         {"name": "GitHub", "url": REPO, "html": GITHUB, "class": ""},
         {"name": "PyPI", "url": f"https://pypi.org/project/{DIST}/", "html": PYPI, "class": ""},
-        {"name": "theqiyas.cc", "url": SITE, "html": GLOBE, "class": ""},
+        {"name": "qiyas.cc", "url": SITE, "html": GLOBE, "class": ""},
     ],
 }

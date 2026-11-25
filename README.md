@@ -40,7 +40,7 @@ Works with Django 4.2, 5.0, 5.1, 5.2, 6.0 and 6.1, Python 3.10 and up.
 pip install django-cc-sightline
 ```
 
-The package lives on PyPI: [pypi.org/project/django-cc-sightline](https://pypi.org/project/django-cc-sightline/). The wheel and the source archive are also attached to every [GitHub release](https://github.com/qiyascc/django-sightline/releases). The name `django-sightline` on PyPI belongs to an unrelated project, so this one is published as `django-cc-sightline`. Inside Django it is still the `sightline` app. The full documentation, with step by step guides, recipes and a settings reference, is at [django-cc-sightline.readthedocs.io](https://django-cc-sightline.readthedocs.io/). More about the project on [theqiyas.cc](https://theqiyas.cc/projects/django-sightline/).
+The package lives on PyPI: [pypi.org/project/django-cc-sightline](https://pypi.org/project/django-cc-sightline/). The wheel and the source archive are also attached to every [GitHub release](https://github.com/qiyascc/django-sightline/releases). The name `django-sightline` on PyPI belongs to an unrelated project, so this one is published as `django-cc-sightline`. Inside Django it is still the `sightline` app. The full documentation, with step by step guides, recipes and a settings reference, is at [django-cc-sightline.readthedocs.io](https://django-cc-sightline.readthedocs.io/). More about the project on [qiyas.cc](https://qiyas.cc/projects/django-sightline/).
 
 Add the app, the middleware and the URLs:
 
